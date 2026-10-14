@@ -1,0 +1,12 @@
+/*
+ *  AudioCast for open.mp and SA-MP
+ *  Copyright (c) 2026 devbluen
+ */
+
+#pragma once
+
+// Generated from the CMake project version.
+#define AUDIOCAST_VERSION "@PROJECT_VERSION@"
+#define AUDIOCAST_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define AUDIOCAST_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define AUDIOCAST_VERSION_PATCH @PROJECT_VERSION_PATCH@

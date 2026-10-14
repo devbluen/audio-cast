@@ -1,0 +1,69 @@
+name: Build AudioCast
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to embed in the build"
+        required: false
+        type: string
+        default: "1.0.0"
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_VERSION: ${{ inputs.version || '1.0.0' }}
+
+jobs:
+  # Builds both platforms exactly like a developer machine does:
+  # Windows natively, Linux cross-compiled with Zig.
+  release:
+    name: Windows + Linux (build.ps1)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: pwsh
+        run: ./build.ps1 -Version $env:RELEASE_VERSION
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: audio-cast-${{ env.RELEASE_VERSION }}
+          path: |
+            dist/*.zip
+          if-no-files-found: error
+
+  # The cross-compiled Linux binaries cannot run on Windows, so the tests also
+  # run on a real 32-bit Linux build.
+  linux-tests:
+    name: Linux x86 tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-multilib g++-multilib cmake ninja-build
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAUDIOCAST_BUILD_32BIT=ON
+          cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Verify exports
+        run: |
+          plugin=build/plugins/audio-cast.so
+          file "$plugin"
+          for symbol in ComponentEntryPoint Supports Load Unload AmxLoad AmxUnload ProcessTick; do
+            nm -D --defined-only "$plugin" | grep -qw "$symbol"
+          done

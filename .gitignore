@@ -1,0 +1,21 @@
+# Build output (build.ps1)
+/build/
+/dist/
+/.tools/
+/out/
+/cmake-build-*/
+/artifacts/
+/package/
+
+# Downloaded songs when running a server from the repository
+/scriptfiles/
+
+# IDE state
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+*.log
+*.dmp

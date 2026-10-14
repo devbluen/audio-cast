@@ -1,0 +1,14 @@
+/* Symbols visible to the server; everything else (asio, libopus, LAME,
+   the C++ runtime) stays private to the plugin. */
+{
+	global:
+		ComponentEntryPoint;
+		Supports;
+		Load;
+		Unload;
+		AmxLoad;
+		AmxUnload;
+		ProcessTick;
+	local:
+		*;
+};
