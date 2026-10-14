@@ -12,6 +12,11 @@ on:
         required: false
         type: string
         default: "1.0.0"
+      publish_release:
+        description: "Publish a GitHub release (tag v<version>) with both zips"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -77,3 +82,39 @@ jobs:
           for symbol in ComponentEntryPoint Supports Load Unload AmxLoad AmxUnload ProcessTick; do
             nm -D --defined-only "$plugin" | grep -qw "$symbol"
           done
+
+  # Only on a manual run with "publish_release" checked, and only after both
+  # platforms built and the Linux tests passed.
+  publish:
+    name: Publish release
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    needs: [release, linux-tests]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: audio-cast-${{ env.RELEASE_VERSION }}-*
+          path: artifacts
+
+      # Each artifact holds the extracted release files; zip them again as
+      # release assets.
+      - name: Create zips
+        run: |
+          mkdir release
+          for dir in artifacts/*/; do
+            name=$(basename "$dir")
+            (cd "$dir" && zip -qr "$GITHUB_WORKSPACE/release/$name.zip" .)
+          done
+          ls -l release
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$RELEASE_VERSION" release/*.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "AudioCast $RELEASE_VERSION" \
+            --generate-notes
