@@ -19,6 +19,9 @@ set(CMAKE_CXX_COMPILER "${AUDIOCAST_ZIG_WRAPPERS}/zig-c++.cmd")
 set(CMAKE_AR "${AUDIOCAST_ZIG_WRAPPERS}/zig-ar.cmd" CACHE FILEPATH "" FORCE)
 set(CMAKE_RANLIB "${AUDIOCAST_ZIG_WRAPPERS}/zig-ranlib.cmd" CACHE FILEPATH "" FORCE)
 
+# Zig's linker rejects --dependency-file, which CMake passes with Ninja.
+set(CMAKE_LINK_DEPENDS_USE_LINKER OFF)
+
 # Nothing is searched on the Windows host.
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)

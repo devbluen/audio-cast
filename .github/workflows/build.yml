@@ -20,23 +20,33 @@ env:
   RELEASE_VERSION: ${{ inputs.version || '1.0.0' }}
 
 jobs:
-  # Builds both platforms exactly like a developer machine does:
-  # Windows natively, Linux cross-compiled with Zig.
+  # One job per platform, each with its own artifact, so players download only
+  # the one their server needs. Both run on Windows exactly like a developer
+  # machine does: Windows natively, Linux cross-compiled with Zig.
   release:
-    name: Windows + Linux (build.ps1)
+    name: ${{ matrix.platform }} x86 (build.ps1)
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows, linux]
     steps:
       - uses: actions/checkout@v4
 
       - name: Build
         shell: pwsh
-        run: ./build.ps1 -Version $env:RELEASE_VERSION
+        run: ./build.ps1 -Target ${{ matrix.platform }} -Version $env:RELEASE_VERSION
+
+      # The artifact is already a zip; upload the release zip's contents so the
+      # download is not a zip inside a zip.
+      - name: Extract release files
+        shell: pwsh
+        run: Expand-Archive -Path "dist/audio-cast-$env:RELEASE_VERSION-${{ matrix.platform }}-x86.zip" -DestinationPath package
 
       - uses: actions/upload-artifact@v4
         with:
-          name: audio-cast-${{ env.RELEASE_VERSION }}
-          path: |
-            dist/*.zip
+          name: audio-cast-${{ env.RELEASE_VERSION }}-${{ matrix.platform }}-x86
+          path: package/
           if-no-files-found: error
 
   # The cross-compiled Linux binaries cannot run on Windows, so the tests also
