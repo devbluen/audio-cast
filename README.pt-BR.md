@@ -12,11 +12,11 @@ O mesmo arquivo (`audio-cast.dll` / `audio-cast.so`) funciona como componente do
 
 ```
  Radio_Play("link")                         servidor (plugin)                         jogadores
- ─────────────────►  yt-dlp ─► decoder Opus ─► encoder MP3 ─► relógio da rádio ─► HTTP :8000 ─► PlayAudioStreamForPlayer
+ ─────────────────►  yt-dlp ─► decoder Opus/AAC ─► encoder MP3 ─► relógio da rádio ─► HTTP :8000 ─► PlayAudioStreamForPlayer
                     (gerenciado)   (interno)       (interno)      (só em memória)
 ```
 
-1. O **yt-dlp** baixa o áudio da música direto para a memória. O decoder Opus (libopus) e o encoder MP3 (LAME), embutidos no plugin, convertem tudo para o formato do stream (MP3 48 kHz estéreo, bitrate fixo) **enquanto baixa**: a música começa assim que os primeiros 3 segundos ficam prontos, normalmente 3–5 s depois do `Radio_Play`. Nada é gravado em disco.
+1. O **yt-dlp** baixa o áudio da música direto para a memória. Os decoders (libopus para Opus, fdk-aac para AAC) e o encoder MP3 (LAME), embutidos no plugin, convertem tudo para o formato do stream (MP3 48 kHz estéreo, bitrate fixo) **enquanto baixa**: a música começa assim que os primeiros 3 segundos ficam prontos, normalmente 3–5 s depois do `Radio_Play`. Nada é gravado em disco.
 2. Cada rádio tem **um relógio único**: os frames de áudio saem em tempo real, exatamente 1× a velocidade da música, tenha ouvinte ou não. Entre uma música e outra sai silêncio, então a conexão nunca cai.
 3. O plugin tem um servidor HTTP embutido, no estilo Shoutcast/Icecast. Cada jogador recebe uma URL própria (com token). Ao conectar, ele recebe o mesmo "burst" de áudio recente que todos os outros receberam e, a partir daí, o ao vivo.
 
@@ -26,7 +26,7 @@ Como todo mundo recebe o mesmo burst e o mesmo fluxo em tempo real, todos tocam 
 
 Não precisa instalar nada. Só é preciso uma **porta TCP** liberada no firewall (padrão `8000`), porque os jogadores baixam o stream dela.
 
-- **Conversão de áudio:** é interna ao plugin (libopus + LAME, linkadas estaticamente). Não precisa de ffmpeg.
+- **Conversão de áudio:** é interna ao plugin (libopus + fdk-aac + LAME, linkadas estaticamente). Não precisa de ffmpeg.
 - **yt-dlp:** é gerenciado pelo plugin. Na primeira inicialização ele baixa a build oficial do yt-dlp para o seu sistema e processador em `scriptfiles/audiocast/bin/` e instala as versões novas (confere uma vez por dia). É usada a build descompactada, que abre cerca de 1 segundo mais rápido em cada música. O yt-dlp continua sendo um programa separado de propósito: o YouTube muda com frequência e o yt-dlp recebe correções em dias, sem precisar esperar uma nova versão do plugin.
   - No Windows o download usa o WinHTTP do próprio sistema. No Linux, esse primeiro download precisa de `curl` ou `wget` (presentes em praticamente qualquer hospedagem).
   - Prefere usar o seu? Coloque o caminho em `audiocast_ytdlp`. O plugin usa como está e não o atualiza.
@@ -227,7 +227,7 @@ audio-cast-check --search "tiago iorc" auto scriptfiles/audiocast
 - **Tempo:** o cliente do jogo guarda alguns segundos de qualquer stream de áudio antes de tocar, e o AudioCast mantém todo mundo sincronizado dando a todos o mesmo buffer de `audiocast_burst_ms`. Por isso os jogadores ouvem a rádio cerca de 4 s depois de o servidor produzi-la. Os getters e o `OnRadioTrackStart`/`End` acompanham o que os jogadores ouvem, então as mensagens no chat batem com o áudio. Os comandos (`Radio_Pause`, `Skip`, `Seek`, `Play`) agem no servidor na hora e **chegam aos ouvidos depois desse atraso**: depois de pausar, a música ainda toca cerca de 4 s; depois de retomar, ela volta cerca de 4 s depois. Isso é inerente a transmitir para o cliente do jogo sem modificações.
 - **Espaço em disco:** as músicas só existem em memória (cerca de 1 MB por minuto de música) enquanto alguma rádio toca ou tem a música na fila, mais o tempo de `audiocast_cache_minutes`. Depois disso são liberadas. No disco fica só o programa yt-dlp. Sobras de um crash e músicas salvas pela versão 1.0 são apagadas na inicialização.
 - **Tempo de carregamento:** a música fica pronta para tocar 3–5 s depois do `Radio_Play` (buscar por texto na mesma chamada soma cerca de 1 s); o resto carrega enquanto toca. Se duas rádios tocarem a mesma música, ela é baixada uma vez só. Com `audiocast_normalize 1` a música inteira precisa ser baixada antes, então demora mais.
-- **Formatos:** o plugin usa o áudio Opus do YouTube, que praticamente todo vídeo tem. Um vídeo sem ele falha com `OnRadioTrackError`.
+- **Formatos:** o plugin usa o áudio Opus do YouTube, que praticamente todo vídeo tem. Vídeos sem ele (muitas vezes uploads recentes) tocam pelo áudio AAC (m4a).
 - **Cortes limpos:** cada frame MP3 é codificado de forma independente (sem reservatório de bits), então pausar, pular, avançar e entrar no meio da música nunca geram estalos.
 - **Bloqueio do YouTube:** em VPS é comum o YouTube pedir login. Exporte os cookies do navegador para um arquivo e aponte `audiocast_cookies` para ele.
 - **Segurança:** o plugin nunca usa shell. O yt-dlp é chamado direto com argumentos, e só IDs de vídeo validados viram URL, então o texto digitado por jogadores não consegue injetar comandos. Cada jogador recebe um token próprio na URL, que é invalidado quando ele sai.
@@ -247,7 +247,7 @@ No Windows, um único script compila **Windows e Linux** e junta tudo em `dist/`
 O script só precisa do **Visual Studio 2022** (carga de trabalho "Desenvolvimento para desktop com C++") e do **CMake**. O resto é baixado com hash SHA-256 conferido:
 
 - **Linux:** o binário Linux é cross-compilado com o [Zig](https://ziglang.org/), baixado em `.tools/` no primeiro uso. Não precisa de máquina Linux, WSL nem Docker. O alvo é a glibc 2.17+, então carrega em praticamente qualquer hospedagem Linux.
-- **Bibliotecas:** asio, libopus e LAME são baixadas e compiladas pelo CMake (`cmake/dependencies.cmake`) e linkadas estaticamente.
+- **Bibliotecas:** asio, libopus, fdk-aac e LAME são baixadas e compiladas pelo CMake (`cmake/dependencies.cmake`) e linkadas estaticamente.
 
 A primeira execução leva alguns minutos; as seguintes só recompilam o que mudou. Resultado:
 
@@ -273,4 +273,4 @@ cmake --preset linux-x86 && cmake --build --preset linux-x86 && ctest --preset l
 
 Os servidores SA-MP e open.mp são 32 bits, então toda build é x86.
 
-O plugin inclui a LAME (LGPL) e a libopus (BSD). Se você distribuir o binário, siga os termos da LGPL para a LAME: por exemplo, publique o código-fonte deste projeto ou linke a LAME de forma substituível.
+O plugin inclui a LAME (LGPL), a libopus (BSD) e a biblioteca Fraunhofer FDK AAC (licença FDK). Se você distribuir o binário, siga os termos da LGPL para a LAME: por exemplo, publique o código-fonte deste projeto ou linke a LAME de forma substituível. A licença FDK pede que o texto dela acompanhe o binário (os zips de release trazem em `licenses/fdk-aac.txt`) e que o código-fonte da biblioteca esteja disponível ([github.com/mstorsjo/fdk-aac](https://github.com/mstorsjo/fdk-aac), sem modificações). Ela não concede direitos de patente do AAC.

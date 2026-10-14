@@ -4,45 +4,29 @@
  */
 
 #include "transcoder.hpp"
+#include "decoder.hpp"
 #include "mp3.hpp"
 #include <lame.h>
-#include <opus.h>
 #include <algorithm>
 #include <cmath>
 
 namespace
 {
-// Longest Opus packet: 120 ms at 48 kHz.
-constexpr int MAX_PACKET_SAMPLES = 5760;
+// PCM frames handed to LAME per call.
+constexpr std::size_t CHUNK_FRAMES = 8192;
 }
 
-void OpusToMp3::DecoderDeleter::operator()(OpusDecoder* decoder) const
-{
-	opus_decoder_destroy(decoder);
-}
-
-void OpusToMp3::EncoderDeleter::operator()(lame_global_struct* encoder) const
+void Mp3Encoder::EncoderDeleter::operator()(lame_global_struct* encoder) const
 {
 	lame_close(encoder);
 }
 
-OpusToMp3::OpusToMp3() = default;
-OpusToMp3::~OpusToMp3() = default;
+Mp3Encoder::Mp3Encoder() = default;
+Mp3Encoder::~Mp3Encoder() = default;
 
-bool OpusToMp3::begin(const WebM::OpusInfo& info, int bitrateKbps, float gain, std::string& error)
+bool Mp3Encoder::begin(int sampleRate, int bitrateKbps, float gain, std::string& error)
 {
-	int status = 0;
-	decoder_.reset(opus_decoder_create(Mp3::SAMPLE_RATE, info.channels, &status));
-	if (status != OPUS_OK || !decoder_)
-	{
-		error = std::string("opus decoder: ") + opus_strerror(status);
-		return false;
-	}
-	if (info.outputGain != 0) opus_decoder_ctl(decoder_.get(), OPUS_SET_GAIN(info.outputGain));
-	channels_ = info.channels;
-	skip_ = info.preSkip;
 	gain_ = gain;
-
 	encoder_.reset(lame_init());
 	if (!encoder_)
 	{
@@ -50,7 +34,7 @@ bool OpusToMp3::begin(const WebM::OpusInfo& info, int bitrateKbps, float gain, s
 		return false;
 	}
 	lame_global_flags* flags = encoder_.get();
-	lame_set_in_samplerate(flags, Mp3::SAMPLE_RATE);
+	lame_set_in_samplerate(flags, sampleRate);
 	lame_set_out_samplerate(flags, Mp3::SAMPLE_RATE);
 	lame_set_num_channels(flags, 2);
 	lame_set_mode(flags, JOINT_STEREO);
@@ -62,45 +46,39 @@ bool OpusToMp3::begin(const WebM::OpusInfo& info, int bitrateKbps, float gain, s
 	lame_set_bWriteVbrTag(flags, 0);
 	if (lame_init_params(flags) < 0)
 	{
+		encoder_.reset();
 		error = "could not configure the MP3 encoder";
 		return false;
 	}
 
-	decoded_.resize(static_cast<std::size_t>(MAX_PACKET_SAMPLES) * channels_);
-	pcm_.resize(static_cast<std::size_t>(MAX_PACKET_SAMPLES) * 2);
-	output_.resize(static_cast<std::size_t>(1.25 * MAX_PACKET_SAMPLES + 7200));
+	pcm_.resize(CHUNK_FRAMES * 2);
+	// LAME's worst case is 1.25 * samples + 7200, for samples at the output
+	// rate; upsampling (44.1 -> 48 kHz) needs a little more.
+	output_.resize(CHUNK_FRAMES * 2 + 7200);
 	return true;
 }
 
-bool OpusToMp3::packet(const std::uint8_t* data, std::size_t size, std::vector<std::uint8_t>& mp3)
+bool Mp3Encoder::encode(const float* stereo, std::size_t frames, std::vector<std::uint8_t>& mp3)
 {
-	const int frames = opus_decode_float(decoder_.get(), data, static_cast<opus_int32>(size), decoded_.data(), MAX_PACKET_SAMPLES, 0);
-	if (frames < 0) return true; // a damaged packet is skipped, not fatal
-
-	int first = 0;
-	if (skip_ > 0)
+	while (frames > 0)
 	{
-		first = std::min(skip_, frames);
-		skip_ -= first;
+		const std::size_t count = std::min(frames, CHUNK_FRAMES);
+		for (std::size_t index = 0; index < count * 2; ++index)
+		{
+			const float value = std::clamp(stereo[index] * gain_, -1.0f, 1.0f);
+			pcm_[index] = static_cast<short>(std::lrint(value * 32767.0f));
+		}
+		const int bytes = lame_encode_buffer_interleaved(encoder_.get(), pcm_.data(), static_cast<int>(count), output_.data(),
+			static_cast<int>(output_.size()));
+		if (bytes < 0) return false;
+		mp3.insert(mp3.end(), output_.begin(), output_.begin() + bytes);
+		stereo += count * 2;
+		frames -= count;
 	}
-	const int count = frames - first;
-	if (count <= 0) return true;
-
-	for (int frame = 0; frame < count; ++frame)
-	{
-		const std::size_t source = static_cast<std::size_t>(first + frame) * channels_;
-		const float left = decoded_[source] * gain_;
-		const float right = decoded_[source + (channels_ == 2 ? 1 : 0)] * gain_;
-		pcm_[frame * 2] = static_cast<short>(std::lrint(std::clamp(left, -1.0f, 1.0f) * 32767.0f));
-		pcm_[frame * 2 + 1] = static_cast<short>(std::lrint(std::clamp(right, -1.0f, 1.0f) * 32767.0f));
-	}
-	const int bytes = lame_encode_buffer_interleaved(encoder_.get(), pcm_.data(), count, output_.data(), static_cast<int>(output_.size()));
-	if (bytes < 0) return false;
-	mp3.insert(mp3.end(), output_.begin(), output_.begin() + bytes);
 	return true;
 }
 
-bool OpusToMp3::finish(std::vector<std::uint8_t>& mp3)
+bool Mp3Encoder::finish(std::vector<std::uint8_t>& mp3)
 {
 	const int bytes = lame_encode_flush(encoder_.get(), output_.data(), static_cast<int>(output_.size()));
 	if (bytes < 0) return false;
@@ -108,51 +86,35 @@ bool OpusToMp3::finish(std::vector<std::uint8_t>& mp3)
 	return true;
 }
 
-bool MeasureNormalizeGain(const std::vector<std::uint8_t>& webm, const std::atomic<bool>& cancel, float& gain, std::string& error)
+bool MeasureNormalizeGain(const std::vector<std::uint8_t>& audio, const std::atomic<bool>& cancel, float& gain, std::string& error)
 {
 	gain = 1.0f;
-	WebM::OpusStream stream;
-	OpusDecoder* decoder = nullptr;
-	std::vector<float> decoded;
+	AudioDecoder decoder;
 	double sumSquares = 0.0;
 	std::uint64_t samples = 0;
 	float peak = 0.0f;
-	int skip = 0;
 
-	const bool parsed = stream.feed(webm.data(), webm.size(), [&](const std::uint8_t* data, std::size_t size)
+	const bool parsed = decoder.feed(audio.data(), audio.size(), [&](const float* stereo, std::size_t frames)
 	{
-		if (!decoder)
-		{
-			int status = 0;
-			decoder = opus_decoder_create(Mp3::SAMPLE_RATE, stream.info().channels, &status);
-			if (status != OPUS_OK) return;
-			if (stream.info().outputGain != 0) opus_decoder_ctl(decoder, OPUS_SET_GAIN(stream.info().outputGain));
-			decoded.resize(static_cast<std::size_t>(MAX_PACKET_SAMPLES) * stream.info().channels);
-			skip = stream.info().preSkip * stream.info().channels;
-		}
 		if (cancel.load()) return;
-		const int frames = opus_decode_float(decoder, data, static_cast<opus_int32>(size), decoded.data(), MAX_PACKET_SAMPLES, 0);
-		const int values = frames * stream.info().channels;
-		for (int index = 0; index < values; ++index)
+		for (std::size_t index = 0; index < frames * 2; ++index)
 		{
-			if (skip > 0)
-			{
-				--skip;
-				continue;
-			}
-			const float value = decoded[index];
+			const float value = stereo[index];
 			sumSquares += double(value) * value;
 			peak = std::max(peak, std::fabs(value));
-			++samples;
 		}
+		samples += frames * 2;
 	});
-	if (decoder) opus_decoder_destroy(decoder);
 	if (cancel.load())
 	{
 		error = "cancelled";
 		return false;
 	}
-	if (!parsed || !stream.finish(error)) return false;
+	if (!parsed || !decoder.finish(error))
+	{
+		if (error.empty()) error = decoder.error();
+		return false;
+	}
 
 	if (samples > 0 && sumSquares > 0.0)
 	{
@@ -164,30 +126,25 @@ bool MeasureNormalizeGain(const std::vector<std::uint8_t>& webm, const std::atom
 	return true;
 }
 
-bool TranscodeWebmToMp3(const std::vector<std::uint8_t>& webm, int bitrateKbps, bool normalize, const std::atomic<bool>& cancel,
+bool TranscodeToMp3(const std::vector<std::uint8_t>& audio, int bitrateKbps, bool normalize, const std::atomic<bool>& cancel,
 	std::vector<std::uint8_t>& mp3, std::string& error)
 {
 	mp3.clear();
 	float gain = 1.0f;
-	if (normalize && !MeasureNormalizeGain(webm, cancel, gain, error)) return false;
+	if (normalize && !MeasureNormalizeGain(audio, cancel, gain, error)) return false;
 
-	WebM::OpusStream stream;
-	OpusToMp3 converter;
-	bool started = false;
+	AudioDecoder decoder;
+	Mp3Encoder encoder;
 	bool failed = false;
-	const bool parsed = stream.feed(webm.data(), webm.size(), [&](const std::uint8_t* data, std::size_t size)
+	const bool parsed = decoder.feed(audio.data(), audio.size(), [&](const float* stereo, std::size_t frames)
 	{
 		if (failed || cancel.load()) return;
-		if (!started)
+		if (!encoder.started() && !encoder.begin(decoder.sampleRate(), bitrateKbps, gain, error))
 		{
-			started = true;
-			if (!converter.begin(stream.info(), bitrateKbps, gain, error))
-			{
-				failed = true;
-				return;
-			}
+			failed = true;
+			return;
 		}
-		if (!converter.packet(data, size, mp3))
+		if (!encoder.encode(stereo, frames, mp3))
 		{
 			error = "MP3 encoding failed";
 			failed = true;
@@ -199,8 +156,12 @@ bool TranscodeWebmToMp3(const std::vector<std::uint8_t>& webm, int bitrateKbps, 
 		return false;
 	}
 	if (failed) return false;
-	if (!parsed || !stream.finish(error)) return false;
-	if (!converter.finish(mp3) || mp3.empty())
+	if (!parsed || !decoder.finish(error))
+	{
+		if (error.empty()) error = decoder.error();
+		return false;
+	}
+	if (!encoder.started() || !encoder.finish(mp3) || mp3.empty())
 	{
 		error = "the song has no audio";
 		return false;

@@ -79,9 +79,11 @@ endforeach()
 # Sources without any server dependency, shared with the tests and tools.
 add_library(audio-cast-core STATIC
 	src/config.cpp
+	src/decoder.cpp
 	src/loader.cpp
 	src/log.cpp
 	src/mp3.cpp
+	src/mp4.cpp
 	src/process.cpp
 	src/station.cpp
 	src/stream-server.cpp
@@ -99,7 +101,7 @@ target_compile_definitions(audio-cast-core PUBLIC
 	HAVE_STDINT_H=1
 	PAWN_CELL_SIZE=32
 )
-target_link_libraries(audio-cast-core PUBLIC OMP-SDK Threads::Threads audiocast-asio audiocast-lame audiocast-miniz opus)
+target_link_libraries(audio-cast-core PUBLIC OMP-SDK Threads::Threads audiocast-asio audiocast-lame audiocast-miniz opus fdk-aac)
 set_target_properties(audio-cast-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(WIN32)
 	target_link_libraries(audio-cast-core PUBLIC winhttp)

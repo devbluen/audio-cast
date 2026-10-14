@@ -255,6 +255,10 @@ function Publish-Platform([string]$Platform, $Output, [string]$ToolName) {
     Copy-Item (Join-Path $DistRoot 'include') $staging -Recurse
     Copy-Item (Join-Path $DistRoot 'examples') $staging -Recurse
     Copy-Item (Join-Path $Root 'README.md'), (Join-Path $Root 'README.pt-BR.md') $staging
+    # The FDK AAC license must go with the binaries.
+    $licenses = Join-Path $staging 'licenses'
+    New-Item -ItemType Directory -Path $licenses | Out-Null
+    Copy-Item (Join-Path $BuildRoot "$Platform-x86\_deps\fdkaac-src\NOTICE") (Join-Path $licenses 'fdk-aac.txt')
     $zip = Join-Path $DistRoot "audio-cast-$Version-$Platform-x86.zip"
     if (Test-Path $zip) { Remove-Item $zip -Force }
     Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip

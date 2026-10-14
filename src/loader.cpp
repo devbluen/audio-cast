@@ -4,11 +4,11 @@
  */
 
 #include "loader.hpp"
+#include "decoder.hpp"
 #include "log.hpp"
 #include "process.hpp"
 #include "text.hpp"
 #include "transcoder.hpp"
-#include "webm.hpp"
 #include <algorithm>
 #include <fstream>
 #include <iterator>
@@ -461,14 +461,14 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 		return;
 	}
 
-	// The WebM audio comes through stdout and is converted as it arrives.
-	// With audiocast_normalize the whole file is needed first (two passes).
-	WebM::OpusStream stream;
-	OpusToMp3 converter;
+	// The audio (Opus in WebM, or AAC in MP4 for videos without Opus) comes
+	// through stdout and is converted as it arrives.  With audiocast_normalize
+	// the whole file is needed first (two passes).
+	AudioDecoder decoder;
+	Mp3Encoder encoder;
 	Mp3::FrameSplitter splitter;
 	std::vector<std::uint8_t> mp3;
 	std::vector<std::uint8_t> whole;
-	bool converterStarted = false;
 	std::string conversionError;
 	std::size_t received = 0;
 
@@ -477,15 +477,11 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 		splitter.push(mp3.data(), mp3.size(), [&](const std::uint8_t* frame, std::size_t size) { track->append(frame, size); });
 		mp3.clear();
 	};
-	auto onPacket = [&](const std::uint8_t* data, std::size_t size)
+	auto onPcm = [&](const float* stereo, std::size_t frames)
 	{
 		if (!conversionError.empty()) return;
-		if (!converterStarted)
-		{
-			converterStarted = true;
-			if (!converter.begin(stream.info(), config_.bitrateKbps, 1.0f, conversionError)) return;
-		}
-		if (!converter.packet(data, size, mp3)) conversionError = "MP3 encoding failed";
+		if (!encoder.started() && !encoder.begin(decoder.sampleRate(), config_.bitrateKbps, 1.0f, conversionError)) return;
+		if (!encoder.encode(stereo, frames, mp3)) conversionError = "MP3 encoding failed";
 		addMp3();
 	};
 	auto onAudio = [&](const std::uint8_t* data, std::size_t size) -> bool
@@ -501,7 +497,7 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 			whole.insert(whole.end(), data, data + size);
 			return !stopping_;
 		}
-		if (!stream.feed(data, size, onPacket) || !conversionError.empty()) return false;
+		if (!decoder.feed(data, size, onPcm) || !conversionError.empty()) return false;
 		if (!published && track->frameCount() >= READY_FRAMES) publishTrack();
 		return !stopping_;
 	};
@@ -511,8 +507,9 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 		std::shared_lock<std::shared_mutex> lock(ytdlp_.mutex());
 		std::vector<std::string> args = ytdlpBaseArgs();
 		args.insert(args.end(), {
-			// Opus in WebM: decoded by the plugin itself.
-			"-f", "bestaudio[acodec=opus]/bestaudio[ext=webm]",
+			// Decoded by the plugin itself.  Opus first; some videos (often
+			// recent uploads) only have AAC.
+			"-f", "bestaudio[acodec=opus]/bestaudio[ext=m4a]",
 			"--max-filesize", "150M",
 			"--match-filter", "!is_live & duration <=? " + std::to_string(config_.maxDurationSec),
 			"--print-to-file", "%(id)s\n%(duration)s\n%(title)s", infoPath.u8string(),
@@ -523,33 +520,29 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 		run = RunProcess(args, config_.downloadTimeoutSec, stopping_, 1024 * 1024, 0, onAudio);
 	}
 
-	std::string error = conversionError.empty() ? stream.error() : conversionError;
+	std::string error = conversionError.empty() ? decoder.error() : conversionError;
 	if (error.empty() && config_.normalize && !whole.empty() && !stopping_)
 	{
 		float gain = 1.0f;
 		if (MeasureNormalizeGain(whole, stopping_, gain, error))
 		{
-			WebM::OpusStream wholeStream;
-			OpusToMp3 wholeConverter;
-			bool started = false;
-			wholeStream.feed(whole.data(), whole.size(), [&](const std::uint8_t* data, std::size_t size)
+			AudioDecoder wholeDecoder;
+			Mp3Encoder wholeEncoder;
+			wholeDecoder.feed(whole.data(), whole.size(), [&](const float* stereo, std::size_t frames)
 			{
-				if (!started)
-				{
-					started = true;
-					wholeConverter.begin(wholeStream.info(), config_.bitrateKbps, gain, error);
-				}
-				wholeConverter.packet(data, size, mp3);
+				if (!error.empty()) return;
+				if (!wholeEncoder.started() && !wholeEncoder.begin(wholeDecoder.sampleRate(), config_.bitrateKbps, gain, error)) return;
+				if (!wholeEncoder.encode(stereo, frames, mp3)) error = "MP3 encoding failed";
 				addMp3();
 			});
-			if (started) wholeConverter.finish(mp3);
+			if (wholeEncoder.started()) wholeEncoder.finish(mp3);
 			addMp3();
-			if (error.empty()) wholeStream.finish(error);
+			if (error.empty()) wholeDecoder.finish(error);
 		}
 	}
-	else if (error.empty() && converterStarted)
+	else if (error.empty() && encoder.started())
 	{
-		converter.finish(mp3);
+		encoder.finish(mp3);
 		addMp3();
 	}
 
@@ -558,11 +551,11 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 	if (error.empty() && !processOk)
 	{
 		error = received == 0 && run.started && run.exitCode == 0
-			? "video is live, longer than audiocast_max_duration or has no Opus audio"
+			? "video is live, longer than audiocast_max_duration or has no usable audio"
 			: describeFailure(run, "yt-dlp");
 	}
-	if (error.empty() && !config_.normalize) stream.finish(error);
-	if (error.empty() && received == 0) error = "video is live, longer than audiocast_max_duration or has no Opus audio";
+	if (error.empty() && !config_.normalize) decoder.finish(error);
+	if (error.empty() && received == 0) error = "video is live, longer than audiocast_max_duration or has no usable audio";
 	if (error.empty() && track->frameCount() == 0) error = "the song has no audio";
 
 	if (error.empty())

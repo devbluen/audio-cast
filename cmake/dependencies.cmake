@@ -4,6 +4,7 @@
 #
 #   asio    - networking (header-only, the standalone edition of Boost.Asio)
 #   libopus - decodes YouTube's Opus audio
+#   fdk-aac - decodes YouTube's AAC audio (videos without an Opus stream)
 #   LAME    - encodes the stream's MP3
 #   miniz   - unpacks the managed yt-dlp
 
@@ -21,6 +22,10 @@ FetchContent_Declare(opus
 	URL https://github.com/xiph/opus/releases/download/v1.5.2/opus-1.5.2.tar.gz
 	URL_HASH SHA256=65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1
 )
+FetchContent_Declare(fdkaac
+	URL https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v2.0.3.tar.gz
+	URL_HASH SHA256=e25671cd96b10bad896aa42ab91a695a9e573395262baed4e4a2ff178d6a3a78
+)
 FetchContent_Declare(lame
 	URL https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
 	URL_HASH SHA256=ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
@@ -37,12 +42,21 @@ set(OPUS_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(OPUS_INSTALL_PKG_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
 set(OPUS_INSTALL_CMAKE_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
 set(OPUS_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
+# fdk-aac: a static library, nothing installed.  CMP0077 lets these plain
+# variables override its option() defaults.
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(FDK_AAC_INSTALL_CMAKE_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
+set(FDK_AAC_INSTALL_PKGCONFIG_MODULE OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING_SAVED ${BUILD_TESTING})
 set(BUILD_TESTING OFF)
 # asio, LAME and the miniz release have no top-level CMakeLists.txt: they are
 # only downloaded.
-FetchContent_MakeAvailable(asio opus lame miniz)
+FetchContent_MakeAvailable(asio opus fdkaac lame miniz)
 set(BUILD_TESTING ${BUILD_TESTING_SAVED})
+unset(BUILD_SHARED_LIBS)
+unset(CMAKE_POLICY_DEFAULT_CMP0077)
 
 # --- asio -------------------------------------------------------------------
 add_library(audiocast-asio INTERFACE)
@@ -54,6 +68,16 @@ endif()
 
 # --- libopus ------------------------------------------------------------------
 set_target_properties(opus PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# --- fdk-aac ------------------------------------------------------------------
+# The library also holds the AAC encoder; the plugin only links the decoder
+# (the tests use the encoder to make AAC files).
+set_target_properties(fdk-aac PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(MSVC)
+	target_compile_options(fdk-aac PRIVATE /W0)
+else()
+	target_compile_options(fdk-aac PRIVATE -w)
+endif()
 
 # --- LAME (encoder only) ------------------------------------------------------
 set(AUDIOCAST_LAME_SOURCES)

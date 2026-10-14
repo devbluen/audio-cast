@@ -54,7 +54,7 @@ struct LoadResult
 };
 
 // Fetches songs with yt-dlp straight into memory and converts them with the
-// built-in Opus decoder and MP3 encoder while they download.  Nothing is
+// built-in Opus/AAC decoders and MP3 encoder while they download.  Nothing is
 // kept on disk: a song lives in memory while a radio uses it (plus
 // audiocast_cache_minutes).  Runs on its own worker threads.
 class TrackLoader

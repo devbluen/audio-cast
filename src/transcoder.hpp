@@ -5,53 +5,51 @@
 
 #pragma once
 
-#include "webm.hpp"
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-struct OpusDecoder;
 struct lame_global_struct;
 
-// Turns Opus packets into the stream's MP3 format (48 kHz, stereo, constant
-// bitrate, no tags) with libopus and LAME linked into the plugin.  Works
-// packet by packet, so a song can play while the rest is still converted.
+// Turns decoded PCM into the stream's MP3 format (48 kHz, stereo, constant
+// bitrate, no tags) with LAME linked into the plugin.  PCM at another rate
+// (AAC is usually 44.1 kHz) is resampled by LAME.  Works chunk by chunk, so a
+// song can play while the rest is still converted.
 //
 // LAME's bit reservoir is disabled: every frame decodes on its own, so the
 // stream can be cut anywhere (pause, seek, skip, a listener joining) without
 // clicks.
-class OpusToMp3
+class Mp3Encoder
 {
 private:
-	struct DecoderDeleter { void operator()(OpusDecoder* decoder) const; };
 	struct EncoderDeleter { void operator()(lame_global_struct* encoder) const; };
 
-	std::unique_ptr<OpusDecoder, DecoderDeleter> decoder_;
 	std::unique_ptr<lame_global_struct, EncoderDeleter> encoder_;
-	int channels_ = 0;
-	int skip_ = 0;
 	float gain_ = 1.0f;
-	std::vector<float> decoded_;
 	std::vector<short> pcm_;
 	std::vector<unsigned char> output_;
 
 public:
-	OpusToMp3();
-	~OpusToMp3();
+	Mp3Encoder();
+	~Mp3Encoder();
 
-	// gain: linear factor applied to every sample (1 = unchanged).
-	bool begin(const WebM::OpusInfo& info, int bitrateKbps, float gain, std::string& error);
-	// Appends the MP3 bytes produced so far to mp3.
-	bool packet(const std::uint8_t* data, std::size_t size, std::vector<std::uint8_t>& mp3);
+	// sampleRate: of the PCM passed to encode().  gain: linear factor
+	// applied to every sample (1 = unchanged).
+	bool begin(int sampleRate, int bitrateKbps, float gain, std::string& error);
+	bool started() const { return encoder_ != nullptr; }
+	// Interleaved stereo float.  Appends the MP3 bytes produced so far.
+	bool encode(const float* stereo, std::size_t frames, std::vector<std::uint8_t>& mp3);
 	bool finish(std::vector<std::uint8_t>& mp3);
 };
 
 // Gain that brings a song to about -16 dBFS RMS without clipping (two-pass
 // loudness normalisation; needs the whole file).
-bool MeasureNormalizeGain(const std::vector<std::uint8_t>& webm, const std::atomic<bool>& cancel, float& gain, std::string& error);
+bool MeasureNormalizeGain(const std::vector<std::uint8_t>& audio, const std::atomic<bool>& cancel, float& gain, std::string& error);
 
-// Whole-file conversion of Opus-in-WebM to MP3.
-bool TranscodeWebmToMp3(const std::vector<std::uint8_t>& webm, int bitrateKbps, bool normalize, const std::atomic<bool>& cancel,
+// Whole-file conversion of a downloaded song (Opus in WebM or AAC in MP4) to
+// MP3.
+bool TranscodeToMp3(const std::vector<std::uint8_t>& audio, int bitrateKbps, bool normalize, const std::atomic<bool>& cancel,
 	std::vector<std::uint8_t>& mp3, std::string& error);
