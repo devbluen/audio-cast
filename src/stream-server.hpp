@@ -32,6 +32,7 @@ public:
 	{
 		int playerId = -1;
 		int radioId = 0;
+		int volume = 100; // percent, on top of the radio's volume
 	};
 
 private:
@@ -58,6 +59,7 @@ private:
 	mutable std::mutex sharedMutex_;
 	std::unordered_map<std::string, Ticket> tickets_;
 	std::map<int, int> listenerCounts_;
+	std::map<int, int> radioVolumes_; // percent; missing = 100
 	std::unordered_map<std::string, int> connectedTickets_;
 
 	void accept();
@@ -66,6 +68,8 @@ private:
 	// Called by sessions once their request is read.
 	void openStream(const std::shared_ptr<StreamSession>& session, int radioId, const std::string& token, bool isHead, bool wantsMetadata);
 	void sessionClosed(StreamSession& session);
+	// sharedMutex_ must be held.
+	int volumeStepsLocked(int radioId, const std::string& token) const;
 
 public:
 	explicit StreamServer(EventQueue& events);
@@ -83,5 +87,9 @@ public:
 	void addTicket(const std::string& token, Ticket ticket);
 	void removeTicket(const std::string& token);
 	int listenerCount(int radioId) const;
+	// Volumes in percent (0-100).  They apply to the audio sent from now
+	// on, so listeners hear the change after the burst they already hold.
+	void setRadioVolume(int radioId, int percent);
+	void setTicketVolume(const std::string& token, int percent);
 	bool ticketConnected(const std::string& token) const;
 };

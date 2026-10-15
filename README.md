@@ -151,6 +151,7 @@ A complete filterscript with commands is in [examples/radio.pwn](examples/radio.
 | `Radio_GetQueueSize(radioid)` | Queued items (including those still loading). |
 | `Radio_GetListenerCount(radioid)` | Active stream connections. |
 | `Radio_GetPublicUrl(radioid, url[], size)` | URL without a token (needs `audiocast_allow_public 1`). |
+| `Radio_SetVolume(radioid, volume)` / `Radio_GetVolume(radioid)` | Volume for everyone on the radio, 0 (mute) to 100 (default). Heard after the burst players already hold (about `audiocast_burst_ms`). |
 
 The getters (`IsPlaying`, `IsPaused`, `GetPosition`, `GetTitle`, `GetRequestId`…) describe **what players hear right now**, not what the server is producing (see *Timing*).
 
@@ -192,6 +193,7 @@ Radio_Play(g_Radio, videoid);
 | `Radio_RemovePlayer(playerid)` | Removes the player from the radio and stops the audio. |
 | `Radio_GetPlayerRadio(playerid)` | The player's radio (0 = none). |
 | `Radio_IsPlayerStreaming(playerid)` | 1 while the player's client is actually connected to the stream. Useful to detect a blocked port. |
+| `Radio_SetPlayerVolume(playerid, volume)` / `Radio_GetPlayerVolume(playerid)` | One player's volume, 0 to 100, on top of the radio's (50 on a radio at 50 = 25). Kept when they change radio, reset when they leave. |
 | `Radio_AttachPlayer` / `Radio_DetachPlayer` | Low-level versions (they only create or revoke the player's URL). |
 | `Radio_FormatTime(ms, output[], size)` | Formats as `m:ss`. |
 

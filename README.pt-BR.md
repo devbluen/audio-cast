@@ -151,6 +151,7 @@ Há um filterscript completo, com comandos, em [examples/radio.pwn](examples/rad
 | `Radio_GetQueueSize(radioid)` | Itens na fila (inclusive os que estão carregando). |
 | `Radio_GetListenerCount(radioid)` | Conexões ativas no stream. |
 | `Radio_GetPublicUrl(radioid, url[], size)` | URL sem token (precisa de `audiocast_allow_public 1`). |
+| `Radio_SetVolume(radioid, volume)` / `Radio_GetVolume(radioid)` | Volume de todos na rádio, de 0 (mudo) a 100 (padrão). Ouvido depois do burst que os jogadores já têm (cerca de `audiocast_burst_ms`). |
 
 Os getters (`IsPlaying`, `IsPaused`, `GetPosition`, `GetTitle`, `GetRequestId`…) descrevem **o que os jogadores estão ouvindo agora**, e não o que o servidor está produzindo (veja *Tempo*).
 
@@ -192,6 +193,7 @@ Radio_Play(g_Radio, videoid);
 | `Radio_RemovePlayer(playerid)` | Tira o jogador da rádio e para o áudio. |
 | `Radio_GetPlayerRadio(playerid)` | Rádio do jogador (0 = nenhuma). |
 | `Radio_IsPlayerStreaming(playerid)` | 1 enquanto o cliente do jogador está de fato conectado ao stream. Útil para detectar porta bloqueada. |
+| `Radio_SetPlayerVolume(playerid, volume)` / `Radio_GetPlayerVolume(playerid)` | Volume de um jogador, de 0 a 100, em cima do da rádio (50 numa rádio em 50 = 25). Continua quando ele troca de rádio e volta a 100 quando sai do servidor. |
 | `Radio_AttachPlayer` / `Radio_DetachPlayer` | Versões de baixo nível (só geram ou revogam a URL do jogador). |
 | `Radio_FormatTime(ms, output[], size)` | Formata `m:ss`. |
 

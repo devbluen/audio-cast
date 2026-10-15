@@ -71,6 +71,11 @@ native Radio_GetVideoId(radioid, videoid[], size = sizeof videoid);
 native Radio_GetQueueSize(radioid);
 // Players (and other clients) currently connected to the stream.
 native Radio_GetListenerCount(radioid);
+// Volume of everyone listening to the radio: 0 (mute) to 100 (default).
+// Players hear the change after the burst they already hold (about
+// audiocast_burst_ms).  Volume can only go down from the song's own level.
+native Radio_SetVolume(radioid, volume);
+native Radio_GetVolume(radioid);
 // Stream URL without a player token, for VLC/browsers.  Needs
 // audiocast_allow_public 1.
 native Radio_GetPublicUrl(radioid, url[], size = sizeof url);
@@ -100,6 +105,11 @@ native Radio_DetachPlayer(playerid);
 native Radio_GetPlayerRadio(playerid);
 // True while the player's game client is connected to the stream.
 native Radio_IsPlayerStreaming(playerid);
+// One player's volume, 0 (mute) to 100 (default), on top of the radio's:
+// 50 on a radio at 50 is 25.  It stays when the player changes radio and
+// resets when they leave the server.
+native Radio_SetPlayerVolume(playerid, volume);
+native Radio_GetPlayerVolume(playerid);
 
 /*
  * Callbacks
@@ -156,6 +166,7 @@ stock Radio_FormatTime(milliseconds, output[], size = sizeof output)
 public OnPlayerDisconnect(playerid, reason)
 {
 	Radio_DetachPlayer(playerid);
+	Radio_SetPlayerVolume(playerid, 100);
 	#if defined ACast_OnPlayerDisconnect
 		return ACast_OnPlayerDisconnect(playerid, reason);
 	#else

@@ -3,7 +3,8 @@
  *  Copyright (c) 2026 devbluen
  *
  *  Loopback test of the HTTP stream: two listeners join at different times
- *  and must end up playing the same frame at the same moment.
+ *  and must end up playing the same frame at the same moment.  Also checks
+ *  that radio and per-listener volumes reach the right streams.
  */
 
 #include "station.hpp"
@@ -34,6 +35,27 @@ int failures = 0;
 
 constexpr std::uint8_t MARK = 0xAB;
 constexpr std::size_t MARK_OFFSET = 200;
+constexpr int SONG_GAIN = 200;
+// First global_gain of a stereo MPEG-1 frame: header, then 20 bits of side
+// information and 21 bits into the first granule.
+constexpr std::size_t GAIN_BIT = 32 + 20 + 21;
+
+int readGain(const std::uint8_t* frame)
+{
+	int value = 0;
+	for (std::size_t bit = GAIN_BIT; bit < GAIN_BIT + 8; ++bit) value = (value << 1) | ((frame[bit / 8] >> (7 - bit % 8)) & 1);
+	return value;
+}
+
+void writeGain(std::uint8_t* frame, int value)
+{
+	for (std::size_t bit = GAIN_BIT; bit < GAIN_BIT + 8; ++bit)
+	{
+		const std::uint8_t mask = static_cast<std::uint8_t>(0x80 >> (bit % 8));
+		if ((value >> (GAIN_BIT + 7 - bit)) & 1) frame[bit / 8] |= mask;
+		else frame[bit / 8] &= static_cast<std::uint8_t>(~mask);
+	}
+}
 
 // A track whose frames carry their own index, so a client can tell which
 // moment of the song it received.
@@ -49,6 +71,7 @@ std::shared_ptr<const Track> numberedTrack(std::size_t frames)
 		frame[MARK_OFFSET] = MARK;
 		frame[MARK_OFFSET + 1] = static_cast<std::uint8_t>(index & 0xFF);
 		frame[MARK_OFFSET + 2] = static_cast<std::uint8_t>(index >> 8);
+		writeGain(frame.data(), SONG_GAIN);
 		track->append(frame.data(), frame.size());
 	}
 	track->finish();
@@ -59,6 +82,7 @@ struct Capture
 {
 	std::string status;
 	std::vector<int> frames; // track frame index, -1 for silence
+	std::vector<int> gains;  // global gain of each song frame
 	Clock::time_point firstAudio;
 };
 
@@ -118,9 +142,9 @@ Capture listen(int port, const std::string& path, std::chrono::milliseconds dura
 	for (const Mp3::Frame& frame : frames)
 	{
 		const std::uint8_t* p = bytes.data() + frame.offset;
-		capture.frames.push_back(frame.size > MARK_OFFSET + 2 && p[MARK_OFFSET] == MARK
-			? p[MARK_OFFSET + 1] | (p[MARK_OFFSET + 2] << 8)
-			: -1);
+		const bool song = frame.size > MARK_OFFSET + 2 && p[MARK_OFFSET] == MARK;
+		capture.frames.push_back(song ? p[MARK_OFFSET + 1] | (p[MARK_OFFSET + 2] << 8) : -1);
+		if (song) capture.gains.push_back(readGain(p));
 	}
 	return capture;
 }
@@ -235,6 +259,32 @@ int main()
 		std::printf("pause: %zu silent frames, %zu jumps in the song\n", silence, jumps);
 		CHECK(silence >= 40 && silence <= 60); // ~1.2 s
 		CHECK(jumps == 0);
+	}
+
+	// Volume: the radio at 50% and one listener at 50% on top of it.  Both
+	// streams start with a burst sent at the new volume.
+	{
+		server.setRadioVolume(1, 50);
+		server.setTicketVolume("tokena", 50);
+		Capture quarter;
+		Capture half;
+		std::thread listenerA([&] { quarter = listen(port, "/radio/1/tokena.mp3", std::chrono::milliseconds(1500)); });
+		std::thread listenerB([&] { half = listen(port, "/radio/1/tokenb.mp3", std::chrono::milliseconds(1500)); });
+		listenerA.join();
+		listenerB.join();
+		CHECK(!quarter.gains.empty());
+		CHECK(!half.gains.empty());
+		for (int gain : quarter.gains) CHECK(gain == SONG_GAIN - 8); // 25%: -12 dB
+		for (int gain : half.gains) CHECK(gain == SONG_GAIN - 4);    // 50%: -6 dB
+		std::printf("volume: %zu frames at 25%%, %zu at 50%%\n", quarter.gains.size(), half.gains.size());
+
+		server.setRadioVolume(1, 100);
+		server.setTicketVolume("tokena", 0);
+		Capture muted;
+		std::thread listenerC([&] { muted = listen(port, "/radio/1/tokena.mp3", std::chrono::milliseconds(1000)); });
+		listenerC.join();
+		CHECK(!muted.gains.empty());
+		for (int gain : muted.gains) CHECK(gain == 0);
 	}
 
 	server.removeTicket("tokena");

@@ -5,6 +5,7 @@
 
 #include "stream-server.hpp"
 #include "log.hpp"
+#include "mp3.hpp"
 #include "text.hpp"
 #include "version.hpp"
 #include <algorithm>
@@ -34,6 +35,13 @@ std::string headerSafe(const std::string& text)
 	safe.erase(std::remove_if(safe.begin(), safe.end(), [](char c) { return c == '\r' || c == '\n'; }), safe.end());
 	if (safe.size() > 200) safe.resize(200);
 	return safe;
+}
+
+// The audio at a volume (MP3 frames with lowered global gain).
+std::string attenuated(std::string audio, int steps)
+{
+	Mp3::attenuate(reinterpret_cast<std::uint8_t*>(audio.data()), audio.size(), steps);
+	return audio;
 }
 
 std::string plainResponse(const char* status)
@@ -333,6 +341,7 @@ void StreamServer::stop()
 	std::lock_guard<std::mutex> lock(sharedMutex_);
 	tickets_.clear();
 	listenerCounts_.clear();
+	radioVolumes_.clear();
 	connectedTickets_.clear();
 	sessionCount_ = 0;
 }
@@ -375,8 +384,25 @@ void StreamServer::pump()
 		if (audio.empty() || entry.second.sessions.empty()) continue;
 
 		const std::string title = entry.second.station->streamTitle();
-		const auto sessions = entry.second.sessions;
-		for (const auto& session : sessions) session->sendAudio(audio, title);
+		const std::vector<std::shared_ptr<StreamSession>> sessions(entry.second.sessions.begin(), entry.second.sessions.end());
+		std::vector<int> steps;
+		{
+			std::lock_guard<std::mutex> lock(sharedMutex_);
+			for (const auto& session : sessions) steps.push_back(volumeStepsLocked(entry.first, session->token));
+		}
+		// One copy per volume in use; listeners at full volume share the original.
+		std::map<int, std::string> versions;
+		for (std::size_t index = 0; index < sessions.size(); ++index)
+		{
+			if (steps[index] == 0)
+			{
+				sessions[index]->sendAudio(audio, title);
+				continue;
+			}
+			auto version = versions.find(steps[index]);
+			if (version == versions.end()) version = versions.emplace(steps[index], attenuated(audio, steps[index])).first;
+			sessions[index]->sendAudio(version->second, title);
+		}
 	}
 }
 
@@ -402,6 +428,11 @@ void StreamServer::openStream(const std::shared_ptr<StreamSession>& session, int
 			return;
 		}
 		playerId = ticket->second.playerId;
+	}
+	int steps = 0;
+	{
+		std::lock_guard<std::mutex> lock(sharedMutex_);
+		steps = volumeStepsLocked(radioId, token);
 	}
 
 	const auto slot = slots_.find(radioId);
@@ -472,7 +503,20 @@ void StreamServer::openStream(const std::shared_ptr<StreamSession>& session, int
 	session->push(std::move(headers));
 	// Every listener starts with the same amount of recent audio, so all of
 	// them play the same position of the song.
-	session->sendAudio(slot->second.station->burst(), slot->second.station->streamTitle());
+	session->sendAudio(attenuated(slot->second.station->burst(), steps), slot->second.station->streamTitle());
+}
+
+int StreamServer::volumeStepsLocked(int radioId, const std::string& token) const
+{
+	double percent = 100.0;
+	const auto radio = radioVolumes_.find(radioId);
+	if (radio != radioVolumes_.end()) percent = radio->second;
+	if (!token.empty())
+	{
+		const auto ticket = tickets_.find(token);
+		if (ticket != tickets_.end()) percent = percent * ticket->second.volume / 100.0;
+	}
+	return Mp3::volumeToSteps(percent);
 }
 
 void StreamServer::sessionClosed(StreamSession& session)
@@ -521,6 +565,10 @@ void StreamServer::addStation(std::shared_ptr<Station> station)
 
 void StreamServer::removeStation(int radioId)
 {
+	{
+		std::lock_guard<std::mutex> lock(sharedMutex_);
+		radioVolumes_.erase(radioId);
+	}
 	if (!running_) return;
 	asio::post(*io_, [this, radioId]
 	{
@@ -557,6 +605,20 @@ void StreamServer::removeTicket(const std::string& token)
 		}
 		for (const auto& session : sessions) session->close();
 	});
+}
+
+void StreamServer::setRadioVolume(int radioId, int percent)
+{
+	std::lock_guard<std::mutex> lock(sharedMutex_);
+	if (percent >= 100) radioVolumes_.erase(radioId);
+	else radioVolumes_[radioId] = std::max(percent, 0);
+}
+
+void StreamServer::setTicketVolume(const std::string& token, int percent)
+{
+	std::lock_guard<std::mutex> lock(sharedMutex_);
+	const auto ticket = tickets_.find(token);
+	if (ticket != tickets_.end()) ticket->second.volume = std::clamp(percent, 0, 100);
 }
 
 int StreamServer::listenerCount(int radioId) const

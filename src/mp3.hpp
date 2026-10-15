@@ -14,7 +14,7 @@ namespace Mp3
 {
 // Every track is transcoded to this format, so frames of any track (and the
 // generated silence) can follow each other in one stream.  48 kHz is Opus'
-// native rate, so YouTube audio needs no resampling.
+// native rate; AAC audio (usually 44.1 kHz) is resampled by the encoder.
 constexpr int SAMPLE_RATE = 48000;
 constexpr int SAMPLES_PER_FRAME = 1152;
 
@@ -74,6 +74,20 @@ public:
 
 // One MPEG-1 Layer III frame at SAMPLE_RATE that decodes to silence.
 std::vector<std::uint8_t> makeSilentFrame(int bitrateKbps);
+
+// Volume, as a number of 1.5 dB steps to lower the audio by.  MP3 frames
+// store a global gain per granule and channel; lowering it by one step
+// scales the decoded audio by 2^(-1/4).  That changes the volume of
+// already encoded frames without decoding them, so every listener can have
+// their own.
+constexpr int MUTE_STEPS = 255;
+
+// percent: 0 (mute) to 100 (unchanged).  50% is half the amplitude.
+int volumeToSteps(double percent);
+
+// Lowers the volume of a buffer of whole frames in place.  Frames other
+// than MPEG-1 Layer III without CRC are left as they are.
+void attenuate(std::uint8_t* frames, std::size_t size, int steps);
 
 // Duration of a number of frames, in milliseconds.
 inline std::uint64_t framesToMs(std::uint64_t frames)

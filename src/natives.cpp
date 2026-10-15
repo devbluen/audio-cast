@@ -225,6 +225,20 @@ cell n_GetListenerCount(AMX*, cell* params)
 	return component().listenerCount(static_cast<int>(params[1]));
 }
 
+// native Radio_SetVolume(radioid, volume);
+cell n_SetVolume(AMX*, cell* params)
+{
+	if (!hasParams(params, 2)) return 0;
+	return component().setRadioVolume(static_cast<int>(params[1]), static_cast<int>(params[2])) ? 1 : 0;
+}
+
+// native Radio_GetVolume(radioid);
+cell n_GetVolume(AMX*, cell* params)
+{
+	if (!hasParams(params, 1)) return 0;
+	return component().radioVolume(static_cast<int>(params[1]));
+}
+
 // native Radio_GetPublicUrl(radioid, url[], size = sizeof url);
 cell n_GetPublicUrl(AMX* amx, cell* params)
 {
@@ -268,6 +282,20 @@ cell n_IsPlayerStreaming(AMX*, cell* params)
 {
 	if (!hasParams(params, 1)) return 0;
 	return component().playerStreaming(static_cast<int>(params[1])) ? 1 : 0;
+}
+
+// native Radio_SetPlayerVolume(playerid, volume);
+cell n_SetPlayerVolume(AMX*, cell* params)
+{
+	if (!hasParams(params, 2)) return 0;
+	return component().setPlayerVolume(static_cast<int>(params[1]), static_cast<int>(params[2])) ? 1 : 0;
+}
+
+// native Radio_GetPlayerVolume(playerid);
+cell n_GetPlayerVolume(AMX*, cell* params)
+{
+	if (!hasParams(params, 1)) return 0;
+	return component().playerVolume(static_cast<int>(params[1]));
 }
 
 // native Radio_Search(const query[], max_results = 5);
@@ -361,10 +389,14 @@ const AMX_NATIVE_INFO kNatives[] = {
 	{ "Radio_GetQueueSize", guarded<n_GetQueueSize> },
 	{ "Radio_GetListenerCount", guarded<n_GetListenerCount> },
 	{ "Radio_GetPublicUrl", guarded<n_GetPublicUrl> },
+	{ "Radio_SetVolume", guarded<n_SetVolume> },
+	{ "Radio_GetVolume", guarded<n_GetVolume> },
 	{ "Radio_AttachPlayer", guarded<n_AttachPlayer> },
 	{ "Radio_DetachPlayer", guarded<n_DetachPlayer> },
 	{ "Radio_GetPlayerRadio", guarded<n_GetPlayerRadio> },
 	{ "Radio_IsPlayerStreaming", guarded<n_IsPlayerStreaming> },
+	{ "Radio_SetPlayerVolume", guarded<n_SetPlayerVolume> },
+	{ "Radio_GetPlayerVolume", guarded<n_GetPlayerVolume> },
 	{ "Radio_Search", guarded<n_Search> },
 	{ "Radio_GetSearchCount", guarded<n_GetSearchCount> },
 	{ "Radio_GetSearchResult", guarded<n_GetSearchResult> },

@@ -150,6 +150,7 @@ void AudioCastComponent::onAmxUnload(IPawnScript& script)
 void AudioCastComponent::onPlayerDisconnect(IPlayer& player, PeerDisconnectReason)
 {
 	detachPlayer(player.getID());
+	playerVolumes_.erase(player.getID());
 }
 
 // ---------------------------------------------------------------------------
@@ -510,7 +511,7 @@ bool AudioCastComponent::attachPlayer(int playerId, int radioId, std::string& ur
 	Listener listener;
 	listener.radioId = radioId;
 	listener.token = Text::randomToken(24);
-	server_.addTicket(listener.token, StreamServer::Ticket { playerId, radioId });
+	server_.addTicket(listener.token, StreamServer::Ticket { playerId, radioId, playerVolume(playerId) });
 	url = "http://" + publicHost_ + ":" + std::to_string(publicPort_) + "/radio/" + std::to_string(radioId) + "/" + listener.token + ".mp3";
 	listeners_[playerId] = std::move(listener);
 	return true;
@@ -540,6 +541,39 @@ bool AudioCastComponent::playerStreaming(int playerId) const
 int AudioCastComponent::listenerCount(int radioId) const
 {
 	return server_.listenerCount(radioId);
+}
+
+bool AudioCastComponent::setRadioVolume(int radioId, int volume)
+{
+	const auto it = radios_.find(radioId);
+	if (it == radios_.end()) return false;
+	it->second.volume = std::clamp(volume, 0, 100);
+	server_.setRadioVolume(radioId, it->second.volume);
+	return true;
+}
+
+int AudioCastComponent::radioVolume(int radioId) const
+{
+	const auto it = radios_.find(radioId);
+	return it == radios_.end() ? 0 : it->second.volume;
+}
+
+bool AudioCastComponent::setPlayerVolume(int playerId, int volume)
+{
+	if (playerId < 0 || playerId >= MAX_PLAYERS) return false;
+	volume = std::clamp(volume, 0, 100);
+	if (volume == 100) playerVolumes_.erase(playerId);
+	else playerVolumes_[playerId] = volume;
+
+	const auto listener = listeners_.find(playerId);
+	if (listener != listeners_.end()) server_.setTicketVolume(listener->second.token, volume);
+	return true;
+}
+
+int AudioCastComponent::playerVolume(int playerId) const
+{
+	const auto it = playerVolumes_.find(playerId);
+	return it == playerVolumes_.end() ? 100 : it->second;
 }
 
 std::string AudioCastComponent::publicUrl(int radioId) const

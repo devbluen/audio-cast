@@ -4,6 +4,7 @@
  *  Works the same on open.mp and SA-MP.  Commands:
  *    /radio                     tune in or out
  *    /search <song name>        list YouTube results and pick one
+ *    /volume <0-100>            your own volume
  *    /play <link or search>     play now (RCON admin)
  *    /queue <link or search>    add to the queue (RCON admin)
  *    /skip  /stop  /pause  /resume  (RCON admin)
@@ -135,6 +136,20 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	{
 		ShowNowPlaying(playerid);
 		return 1;
+	}
+	if (!strcmp(cmdtext, "/volume", true, 7) && (cmdtext[7] == ' ' || cmdtext[7] == EOS))
+	{
+		new message[64];
+		if (cmdtext[7] == EOS || cmdtext[8] == EOS)
+		{
+			format(message, sizeof message, "[Radio] Your volume: %d%%. Usage: /volume <0-100>", Radio_GetPlayerVolume(playerid));
+			return SendClientMessage(playerid, COLOR_RADIO, message);
+		}
+		new volume = strval(cmdtext[8]);
+		if (volume < 0 || volume > 100) return SendClientMessage(playerid, COLOR_ERROR, "Usage: /volume <0-100>");
+		Radio_SetPlayerVolume(playerid, volume);
+		format(message, sizeof message, "[Radio] Volume set to %d%%.", volume);
+		return SendClientMessage(playerid, COLOR_RADIO, message);
 	}
 	if (!strcmp(cmdtext, "/play", true, 5) && (cmdtext[5] == ' ' || cmdtext[5] == EOS))
 	{

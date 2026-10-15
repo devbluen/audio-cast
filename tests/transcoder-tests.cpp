@@ -435,6 +435,68 @@ void checkAac(const char* name, int aot, int channels, std::size_t perFragment)
 
 	checkMp3(name, mp4, aac.packets.size());
 }
+
+// --- Volume ------------------------------------------------------------------
+
+// global_gain of each granule/channel of a stereo MPEG-1 frame.
+std::vector<int> gains(const std::uint8_t* frame)
+{
+	std::vector<int> result;
+	for (int block = 0; block < 4; ++block)
+	{
+		const std::size_t first = 4 * 8 + 20 + static_cast<std::size_t>(block) * 59 + 21;
+		int value = 0;
+		for (std::size_t bit = first; bit < first + 8; ++bit) value = (value << 1) | ((frame[bit / 8] >> (7 - bit % 8)) & 1);
+		result.push_back(value);
+	}
+	return result;
+}
+
+void checkVolume()
+{
+	CHECK(Mp3::volumeToSteps(100) == 0);
+	CHECK(Mp3::volumeToSteps(150) == 0);
+	CHECK(Mp3::volumeToSteps(50) == 4);  // -6 dB
+	CHECK(Mp3::volumeToSteps(25) == 8);  // -12 dB
+	CHECK(Mp3::volumeToSteps(10) == 13); // about -20 dB
+	CHECK(Mp3::volumeToSteps(0) == Mp3::MUTE_STEPS);
+
+	std::atomic<bool> cancel { false };
+	Bytes mp3;
+	std::string error;
+	CHECK(TranscodeToMp3(makeWebm(encodeSine(2, 1.0), 2, Lacing::None, false), 128, false, cancel, mp3, error));
+	std::vector<Mp3::Frame> frames;
+	CHECK(Mp3::indexFrames(mp3, frames, error));
+
+	for (int steps : { 4, 13, Mp3::MUTE_STEPS })
+	{
+		Bytes quieter = mp3;
+		Mp3::attenuate(quieter.data(), quieter.size(), steps);
+		bool lowered = true;
+		bool sameElsewhere = true;
+		for (const Mp3::Frame& frame : frames)
+		{
+			const auto before = gains(mp3.data() + frame.offset);
+			const auto after = gains(quieter.data() + frame.offset);
+			for (std::size_t index = 0; index < before.size(); ++index)
+			{
+				const int expected = steps == Mp3::MUTE_STEPS ? 0 : std::max(0, before[index] - steps);
+				lowered = lowered && after[index] == expected;
+			}
+			// Only the gain fields change: the main data is untouched.
+			const std::size_t sideEnd = frame.offset + 4 + 32;
+			sameElsewhere = sameElsewhere && std::equal(mp3.begin() + sideEnd, mp3.begin() + frame.offset + frame.size, quieter.begin() + sideEnd);
+		}
+		CHECK(lowered);
+		CHECK(sameElsewhere);
+	}
+
+	// Full volume leaves the bytes alone.
+	Bytes same = mp3;
+	Mp3::attenuate(same.data(), same.size(), 0);
+	CHECK(same == mp3);
+	std::printf("volume: %zu frames attenuated\n", frames.size());
+}
 }
 
 int main()
@@ -445,6 +507,7 @@ int main()
 	checkAac("AAC-LC stereo", 2, 2, 40);
 	checkAac("AAC-LC mono, one fragment", 2, 1, 1000);
 	checkAac("HE-AAC stereo", 5, 2, 25);
+	checkVolume();
 
 	std::string error;
 	WebM::OpusStream garbage;

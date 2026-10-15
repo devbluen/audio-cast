@@ -36,6 +36,7 @@ private:
 	{
 		std::shared_ptr<Station> station;
 		AMX* owner = nullptr;
+		int volume = 100;
 	};
 
 	struct Listener
@@ -60,6 +61,8 @@ private:
 
 	std::map<int, Radio> radios_;
 	std::unordered_map<int, Listener> listeners_;
+	// Players whose volume is not 100; kept across radios until they leave.
+	std::unordered_map<int, int> playerVolumes_;
 
 	struct Search
 	{
@@ -130,6 +133,10 @@ public:
 	int playerRadio(int playerId) const;
 	bool playerStreaming(int playerId) const;
 	int listenerCount(int radioId) const;
+	bool setRadioVolume(int radioId, int volume);
+	int radioVolume(int radioId) const;
+	bool setPlayerVolume(int playerId, int volume);
+	int playerVolume(int playerId) const;
 	std::string publicUrl(int radioId) const;
 
 	static AudioCastComponent* getInstance();

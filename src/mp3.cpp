@@ -4,6 +4,8 @@
  */
 
 #include "mp3.hpp"
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace Mp3
@@ -28,6 +30,23 @@ bool isInfoFrame(const std::uint8_t* frame, const FrameHeader& header)
 		if (std::memcmp(frame + offset, "Xing", 4) == 0 || std::memcmp(frame + offset, "Info", 4) == 0) return true;
 	}
 	return header.size >= 40 && std::memcmp(frame + 36, "VBRI", 4) == 0;
+}
+
+unsigned readBits(const std::uint8_t* data, std::size_t bit, int count)
+{
+	unsigned value = 0;
+	for (int index = 0; index < count; ++index, ++bit) value = (value << 1) | ((data[bit / 8] >> (7 - bit % 8)) & 1);
+	return value;
+}
+
+void writeBits(std::uint8_t* data, std::size_t bit, int count, unsigned value)
+{
+	for (int index = count - 1; index >= 0; --index, ++bit)
+	{
+		const std::uint8_t mask = static_cast<std::uint8_t>(0x80 >> (bit % 8));
+		if ((value >> index) & 1) data[bit / 8] |= mask;
+		else data[bit / 8] &= static_cast<std::uint8_t>(~mask);
+	}
 }
 
 std::size_t id3v2Size(const std::vector<std::uint8_t>& data, std::size_t offset)
@@ -116,6 +135,42 @@ bool indexFrames(const std::vector<std::uint8_t>& data, std::vector<Frame>& fram
 		return false;
 	}
 	return true;
+}
+
+int volumeToSteps(double percent)
+{
+	if (percent <= 0.0) return MUTE_STEPS;
+	if (percent >= 100.0) return 0;
+	return std::min(MUTE_STEPS, static_cast<int>(std::lround(4.0 * std::log2(100.0 / percent))));
+}
+
+void attenuate(std::uint8_t* frames, std::size_t size, int steps)
+{
+	if (steps <= 0) return;
+	std::size_t position = 0;
+	while (size - position >= 4)
+	{
+		FrameHeader header;
+		if (!parseHeader(frames + position, size - position, header) || header.size > size - position) return;
+		// The side information follows the header: main_data_begin (9 bits),
+		// private bits (5 mono / 3 stereo), scfsi (4 per channel), then a
+		// 59-bit block per granule and channel whose global_gain starts at
+		// bit 21.  A CRC would cover these bits, so frames with one stay as
+		// they are.
+		if (header.version == 1 && !header.crc && header.size >= 4 + sideInfoSize(header))
+		{
+			std::uint8_t* side = frames + position + 4;
+			const int channels = header.mono ? 1 : 2;
+			const std::size_t first = header.mono ? 18 : 20;
+			for (int block = 0; block < 2 * channels; ++block)
+			{
+				const std::size_t bit = first + static_cast<std::size_t>(block) * 59 + 21;
+				const int gain = static_cast<int>(readBits(side, bit, 8));
+				writeBits(side, bit, 8, static_cast<unsigned>(steps >= MUTE_STEPS ? 0 : std::max(0, gain - steps)));
+			}
+		}
+		position += header.size;
+	}
 }
 
 std::vector<std::uint8_t> makeSilentFrame(int bitrateKbps)
