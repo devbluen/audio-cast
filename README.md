@@ -1,6 +1,6 @@
 # AudioCast
 
-**English** | [Português](README.pt-BR.md)
+**English** | [Português](README.pt-BR.md) | [Wiki](https://github.com/devbluen/audio-cast/wiki)
 
 Synchronized YouTube radio for **open.mp** and **SA-MP**, 100% server-side.
 
@@ -30,6 +30,15 @@ Nothing to install. You only need an open **TCP port** in the firewall (default 
 - **yt-dlp** is managed by the plugin. On first start it downloads the official build for your OS and CPU into `scriptfiles/audiocast/bin/`, and it installs new releases (checked once a day). The unpacked build is used because it starts about a second faster on every song. yt-dlp stays a separate program on purpose: YouTube changes often, and yt-dlp gets fixes within days, without waiting for a new plugin release.
   - Windows uses the built-in WinHTTP. Linux needs `curl` or `wget` for that first download (present on virtually every host).
   - Prefer your own copy? Set `audiocast_ytdlp` to its path and the plugin will use it as is, without updating it.
+
+## Download
+
+Get the zip for your server's system from the [Releases](https://github.com/devbluen/audio-cast/releases) page:
+
+- `audio-cast-<version>-windows-x86.zip` - Windows servers
+- `audio-cast-<version>-linux-x86.zip` - Linux servers
+
+Each zip has `components/` (open.mp), `plugins/` (SA-MP), `include/audio-cast.inc`, `tools/audio-cast-check`, `examples/radio.pwn` and `licenses/`. Development builds of every commit are also available as artifacts of the *Build AudioCast* workflow in the Actions tab, one per platform.
 
 ## Installation
 
@@ -62,7 +71,7 @@ Each option can come from three places, in this order:
 | `audiocast_bind` | `0.0.0.0` | Interface the stream server listens on. |
 | `audiocast_burst_ms` | `4000` | Recent audio sent to each listener on connect. Everyone gets the same amount, which is what keeps them in sync. It is also how far behind the server players hear (see *Timing*). Lower values shorten that delay but should not go below the game client's own buffer (about 3–4 s), or players who join start with a gap. |
 | `audiocast_bitrate` | `128` | MP3 kbps (32–320). |
-| `audiocast_normalize` | `0` | `1` = normalize song loudness (loudnorm). |
+| `audiocast_normalize` | `0` | `1` = even out the loudness of songs (to about -16 dBFS RMS, never clipping). The whole song is downloaded before it plays. |
 | `audiocast_ytdlp` | `auto` | `auto` = the plugin downloads and updates yt-dlp. Or the path of your own yt-dlp. |
 | `audiocast_cookies` | | YouTube cookies file, for when YouTube asks to "confirm you're not a bot" (common on VPS/datacenter IPs). |
 | `audiocast_data_dir` | `scriptfiles/audiocast` | Holds the managed yt-dlp (~18 MB) and short-lived temporary files. Songs are never saved here. |
@@ -118,7 +127,7 @@ public OnRadioTrackStart(radioid, requestid, const title[], duration_ms)
 }
 ```
 
-A complete filterscript with commands is in [examples/radio.pwn](examples/radio.pwn) (its in-game messages are in Portuguese).
+A complete filterscript with commands (`/radio`, `/search`, `/volume`, `/play`...) is in [examples/radio.pwn](examples/radio.pwn).
 
 ## API
 
@@ -197,6 +206,20 @@ Radio_Play(g_Radio, videoid);
 | `Radio_AttachPlayer` / `Radio_DetachPlayer` | Low-level versions (they only create or revoke the player's URL). |
 | `Radio_FormatTime(ms, output[], size)` | Formats as `m:ss`. |
 
+### Volume
+
+`PlayAudioStreamForPlayer` has no volume, so the plugin lowers it in the stream itself: it edits the gain stored in each MP3 frame, without re-encoding. Every player can have their own volume on the same radio.
+
+- The volume a player hears is the radio's times their own: `Radio_SetVolume(radio, 50)` plus `Radio_SetPlayerVolume(player, 50)` = 25%.
+- 0 is mute and 100 the song's original level; it cannot go above that.
+- Steps are 1.5 dB, so close values may sound the same (50% = -6 dB, 10% ≈ -20 dB).
+- Like pause and skip, a change is heard after the burst the player already holds (about `audiocast_burst_ms`).
+
+```pawn
+// /volume <0-100>
+Radio_SetPlayerVolume(playerid, strval(params));
+```
+
 ### Callbacks
 
 ```pawn
@@ -224,7 +247,7 @@ audio-cast-check --search "daft punk" auto scriptfiles/audiocast
 
 ## Notes
 
-- **Timing:** game clients buffer a few seconds of any audio stream before playing, and AudioCast keeps everyone in sync by giving all of them the same `audiocast_burst_ms` of buffer. So players hear the radio about 4 s after the server produces it. The getters and `OnRadioTrackStart`/`End` follow what players hear, so chat messages match the audio. Commands (`Radio_Pause`, `Skip`, `Seek`, `Play`) act on the server right away and **reach the ears after that delay**: after a pause, the song keeps playing for about 4 s; after a resume, it comes back about 4 s later. This is inherent to streaming to the unmodified game client.
+- **Timing:** game clients buffer a few seconds of any audio stream before playing, and AudioCast keeps everyone in sync by giving all of them the same `audiocast_burst_ms` of buffer. So players hear the radio about 4 s after the server produces it. The getters and `OnRadioTrackStart`/`End` follow what players hear, so chat messages match the audio. Commands (`Radio_Pause`, `Skip`, `Seek`, `Play`, the volume) act on the server right away and **reach the ears after that delay**: after a pause, the song keeps playing for about 4 s; after a resume, it comes back about 4 s later. This is inherent to streaming to the unmodified game client.
 - **Disk space:** songs only live in memory, about 1 MB per minute of music, while a radio plays or queues them (plus `audiocast_cache_minutes`). They are freed when no radio uses them. On disk there is only the yt-dlp program. Leftovers from a crash, and songs saved by version 1.0, are deleted on startup.
 - **Loading time:** a song is ready to play 3–5 s after `Radio_Play` (searching by text in the same call adds about a second); the rest loads while it plays. If two radios play the same song, it is fetched only once. With `audiocast_normalize 1` the whole song must be downloaded first, so it takes longer.
 - **Formats:** the plugin uses YouTube's Opus audio stream, which practically every video has. Videos without one (often recent uploads) play from their AAC (m4a) stream instead.
@@ -272,5 +295,7 @@ cmake --preset linux-x86 && cmake --build --preset linux-x86 && ctest --preset l
 ```
 
 SA-MP and open.mp servers are 32-bit, so every build is x86.
+
+GitHub Actions (`.github/workflows/build.yml`) builds each platform in its own job on every push and uploads one artifact per platform. Running the workflow by hand with **Publish a GitHub release** checked also creates the `v<version>` release with both zips, after the builds and the Linux tests pass.
 
 The plugin links LAME (LGPL), libopus (BSD) and the Fraunhofer FDK AAC library (FDK license). If you distribute the binary, follow the LGPL terms for LAME: for example, ship this project's source or link LAME so it can be replaced. The FDK license asks that its text goes with the binary (the release zips have it in `licenses/fdk-aac.txt`) and that the library's source is available ([github.com/mstorsjo/fdk-aac](https://github.com/mstorsjo/fdk-aac), unmodified). It grants no patent rights for AAC.

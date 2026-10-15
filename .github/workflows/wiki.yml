@@ -1,0 +1,47 @@
+name: Publish wiki
+
+# Copies wiki/ into the repository's GitHub wiki, so the wiki is edited and
+# reviewed like the code.  GitHub only creates the wiki repository after its
+# first page is saved on the website: do that once (any content), then this
+# workflow keeps it in sync.
+on:
+  push:
+    branches: [main, master]
+    paths: ["wiki/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish wiki/
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push to the wiki
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          remote="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          if ! git clone --depth 1 "$remote" wiki-repo; then
+            echo "::error::The wiki does not exist yet. Enable it in Settings > Features, create its first page on the website, then run this workflow again."
+            exit 1
+          fi
+          # The wiki is an exact copy of wiki/: pages removed there are removed here.
+          rsync -a --delete --exclude .git wiki/ wiki-repo/
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The wiki is already up to date."
+            exit 0
+          fi
+          git commit -m "Update from ${GITHUB_SHA::7}"
+          git push
