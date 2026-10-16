@@ -8,6 +8,7 @@ Rádio sincronizada do YouTube para **open.mp** e **SA-MP**, 100% server-side. T
 |---|---|
 | [Getting Started](Getting-Started) | [Primeiros Passos](Primeiros-Passos) |
 | [Configuration](Configuration) | [Configuração](Configuracao) |
+| [YouTube Cookies](YouTube-Cookies) | [Cookies do YouTube](Cookies-do-YouTube) |
 | [API Reference](API-Reference) | [Referência da API](Referencia-da-API) |
 | [Recipes](Recipes) | [Receitas](Receitas) |
 | [Troubleshooting](Troubleshooting) | [Solução de Problemas](Solucao-de-Problemas) |

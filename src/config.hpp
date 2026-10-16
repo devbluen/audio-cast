@@ -51,5 +51,17 @@ struct AudioCastConfig
 // missing keys.  Keys are "audiocast_<name>".
 AudioCastConfig LoadAudioCastConfig(const std::function<std::string(const std::string&)>& lookup);
 
+enum class CookiesStatus
+{
+	Missing,  // no such file: not passed to yt-dlp, which would create it
+	Invalid,  // not a Netscape cookies.txt: not passed, every download would fail
+	NoSignIn, // usable, but without a YouTube sign-in it rarely helps
+	Ok,
+};
+
+// Checks the audiocast_cookies file before it is used.  `message` explains
+// the problem, or confirms which file is used.
+CookiesStatus CheckCookiesFile(const std::string& path, std::string& message);
+
 // Names (without the audiocast_ prefix) of every setting, for config files.
 const char* const* AudioCastConfigKeys();

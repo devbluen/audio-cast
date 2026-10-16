@@ -17,7 +17,7 @@ O motivo chega em `OnRadioTrackError(..., error[])` e no log do servidor.
 
 | Erro | Causa e solução |
 |---|---|
-| `Sign in to confirm you're not a bot` | Comum em IPs de VPS/datacenter. Exporte os cookies do YouTube de um navegador logado (formato Netscape `cookies.txt`, por exemplo com a extensão *Get cookies.txt LOCALLY*) e aponte `audiocast_cookies` para o arquivo. |
+| `Sign in to confirm you're not a bot` | Comum em IPs de VPS/datacenter. Dê ao plugin um login do YouTube com `audiocast_cookies`: veja [Cookies do YouTube](Cookies-do-YouTube). |
 | `video is live, longer than audiocast_max_duration or has no usable audio` | Lives não são suportadas. Para vídeos longos (sets de DJ) aumente `audiocast_max_duration`. |
 | `Requested format is not available` | Versões do plugin anteriores ao suporte a AAC só tocavam vídeos com áudio Opus. Atualize o plugin. Se continuar, o YouTube mudou algo: o yt-dlp se atualiza todo dia; apague `scriptfiles/audiocast/bin/` para forçar um download novo agora. |
 | `not a YouTube link, video ID or search` | Só o YouTube é suportado; links de outros sites são recusados. |

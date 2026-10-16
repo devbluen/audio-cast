@@ -73,7 +73,7 @@ Each option can come from three places, in this order:
 | `audiocast_bitrate` | `128` | MP3 kbps (32–320). |
 | `audiocast_normalize` | `0` | `1` = even out the loudness of songs (to about -16 dBFS RMS, never clipping). The whole song is downloaded before it plays. |
 | `audiocast_ytdlp` | `auto` | `auto` = the plugin downloads and updates yt-dlp. Or the path of your own yt-dlp. |
-| `audiocast_cookies` | | YouTube cookies file, for when YouTube asks to "confirm you're not a bot" (common on VPS/datacenter IPs). |
+| `audiocast_cookies` | | YouTube cookies file (`cookies.txt`, path relative to the server folder), for when YouTube asks to "confirm you're not a bot" (common on VPS/datacenter IPs). Step by step: [wiki](https://github.com/devbluen/audio-cast/wiki/YouTube-Cookies). |
 | `audiocast_data_dir` | `scriptfiles/audiocast` | Holds the managed yt-dlp (~18 MB) and short-lived temporary files. Songs are never saved here. |
 | `audiocast_cache_minutes` | `0` | How long a song stays **in memory** after no radio uses it, so replaying it is instant. `0` frees it right away. |
 | `audiocast_max_duration` | `1800` | Longest accepted song, in seconds. Live streams are always rejected. |
@@ -243,6 +243,7 @@ audio-cast-check "https://youtu.be/dQw4w9WgXcQ" auto scriptfiles/audiocast
 audio-cast-check "https://youtu.be/dQw4w9WgXcQ" auto scriptfiles/audiocast 8000 60
   → open http://127.0.0.1:8000/radio/1.mp3 in VLC
 audio-cast-check --search "daft punk" auto scriptfiles/audiocast
+audio-cast-check --cookies scriptfiles/audiocast/cookies.txt "https://youtu.be/dQw4w9WgXcQ" auto scriptfiles/audiocast
 ```
 
 ## Notes
@@ -252,7 +253,7 @@ audio-cast-check --search "daft punk" auto scriptfiles/audiocast
 - **Loading time:** a song is ready to play 3–5 s after `Radio_Play` (searching by text in the same call adds about a second); the rest loads while it plays. If two radios play the same song, it is fetched only once. With `audiocast_normalize 1` the whole song must be downloaded first, so it takes longer.
 - **Formats:** the plugin uses YouTube's Opus audio stream, which practically every video has. Videos without one (often recent uploads) play from their AAC (m4a) stream instead.
 - **Clean cuts:** every MP3 frame is encoded on its own (no bit reservoir), so pausing, seeking, skipping and joining mid-song never produce clicks.
-- **YouTube blocking:** on a VPS YouTube often asks you to sign in. Export your browser's cookies to a file and point `audiocast_cookies` at it.
+- **YouTube blocking:** on a VPS YouTube often asks you to sign in. Export your browser's cookies to a `cookies.txt` file and point `audiocast_cookies` at it; the server log confirms whether the file was found and has a sign-in. Step by step: [YouTube Cookies](https://github.com/devbluen/audio-cast/wiki/YouTube-Cookies).
 - **Security:** the plugin never uses a shell. yt-dlp is called directly with arguments, and only validated video IDs are turned into URLs, so text typed by players cannot inject commands. Each player gets their own token in the URL, which is revoked when they leave.
 - **Bandwidth:** each listener uses the configured bitrate (128 kbps ≈ 16 KB/s).
 

@@ -18,7 +18,7 @@ Cada opção pode vir de três lugares. Vale o primeiro encontrado:
 | `audiocast_bitrate` | `128` | kbps do MP3, 32-320. Cada ouvinte consome essa banda (128 kbps ≈ 16 KB/s). |
 | `audiocast_normalize` | `0` | `1` = iguala o volume entre as músicas (cerca de -16 dBFS RMS, sem distorcer). As músicas demoram mais para começar: o arquivo inteiro é baixado antes. |
 | `audiocast_ytdlp` | `auto` | `auto` = yt-dlp gerenciado, atualizado todo dia. Ou o caminho de um yt-dlp seu (usado como está, nunca atualizado). |
-| `audiocast_cookies` | | Arquivo de cookies do YouTube (formato Netscape), para quando o YouTube pede login. |
+| `audiocast_cookies` | | Arquivo de cookies do YouTube, para quando o YouTube pede "confirme que não é um robô". Passo a passo: [Cookies do YouTube](Cookies-do-YouTube). |
 | `audiocast_data_dir` | `scriptfiles/audiocast` | yt-dlp gerenciado e arquivos temporários de vida curta. Músicas nunca são gravadas em disco. |
 | `audiocast_cache_minutes` | `0` | Mantém a música em memória por esse tempo depois que nenhuma rádio a usa, para tocar de novo na hora. |
 | `audiocast_max_duration` | `1800` | Duração máxima aceita, em segundos. Lives são sempre recusadas. |

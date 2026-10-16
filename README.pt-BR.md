@@ -73,7 +73,7 @@ Cada opção pode vir de três lugares, nesta ordem:
 | `audiocast_bitrate` | `128` | kbps do MP3 (32–320). |
 | `audiocast_normalize` | `0` | `1` = iguala o volume entre as músicas (cerca de -16 dBFS RMS, sem distorcer). A música inteira é baixada antes de tocar. |
 | `audiocast_ytdlp` | `auto` | `auto` = o plugin baixa e atualiza o yt-dlp. Ou o caminho de um yt-dlp seu. |
-| `audiocast_cookies` | | Arquivo de cookies do YouTube, para quando o YouTube pede "confirme que não é um robô" (comum em VPS/datacenter). |
+| `audiocast_cookies` | | Arquivo de cookies do YouTube (`cookies.txt`, caminho relativo à pasta do servidor), para quando o YouTube pede "confirme que não é um robô" (comum em VPS/datacenter). Passo a passo: [wiki](https://github.com/devbluen/audio-cast/wiki/Cookies-do-YouTube). |
 | `audiocast_data_dir` | `scriptfiles/audiocast` | Guarda o yt-dlp gerenciado (~18 MB) e arquivos temporários de vida curta. Músicas nunca são salvas aqui. |
 | `audiocast_cache_minutes` | `0` | Quanto tempo uma música fica **em memória** depois que nenhuma rádio a usa, para tocar de novo na hora. `0` libera imediatamente. |
 | `audiocast_max_duration` | `1800` | Duração máxima aceita, em segundos. Lives são sempre recusadas. |
@@ -245,6 +245,7 @@ audio-cast-check "https://youtu.be/dQw4w9WgXcQ" auto scriptfiles/audiocast
 audio-cast-check "https://youtu.be/dQw4w9WgXcQ" auto scriptfiles/audiocast 8000 60
   → abra http://127.0.0.1:8000/radio/1.mp3 no VLC
 audio-cast-check --search "tiago iorc" auto scriptfiles/audiocast
+audio-cast-check --cookies scriptfiles/audiocast/cookies.txt "https://youtu.be/dQw4w9WgXcQ" auto scriptfiles/audiocast
 ```
 
 ## Observações
@@ -254,7 +255,7 @@ audio-cast-check --search "tiago iorc" auto scriptfiles/audiocast
 - **Tempo de carregamento:** a música fica pronta para tocar 3–5 s depois do `Radio_Play` (buscar por texto na mesma chamada soma cerca de 1 s); o resto carrega enquanto toca. Se duas rádios tocarem a mesma música, ela é baixada uma vez só. Com `audiocast_normalize 1` a música inteira precisa ser baixada antes, então demora mais.
 - **Formatos:** o plugin usa o áudio Opus do YouTube, que praticamente todo vídeo tem. Vídeos sem ele (muitas vezes uploads recentes) tocam pelo áudio AAC (m4a).
 - **Cortes limpos:** cada frame MP3 é codificado de forma independente (sem reservatório de bits), então pausar, pular, avançar e entrar no meio da música nunca geram estalos.
-- **Bloqueio do YouTube:** em VPS é comum o YouTube pedir login. Exporte os cookies do navegador para um arquivo e aponte `audiocast_cookies` para ele.
+- **Bloqueio do YouTube:** em VPS é comum o YouTube pedir login. Exporte os cookies do navegador para um arquivo `cookies.txt` e aponte `audiocast_cookies` para ele; o log do servidor confirma se o arquivo foi encontrado e se tem login. Passo a passo: [Cookies do YouTube](https://github.com/devbluen/audio-cast/wiki/Cookies-do-YouTube).
 - **Segurança:** o plugin nunca usa shell. O yt-dlp é chamado direto com argumentos, e só IDs de vídeo validados viram URL, então o texto digitado por jogadores não consegue injetar comandos. Cada jogador recebe um token próprio na URL, que é invalidado quando ele sai.
 - **Banda:** cada ouvinte consome o bitrate configurado (128 kbps ≈ 16 KB/s).
 

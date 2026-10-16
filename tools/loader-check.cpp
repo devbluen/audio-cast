@@ -7,6 +7,9 @@
  *    audio-cast-check "<link or search>" [yt-dlp path or auto] [data dir] [port seconds]
  *    audio-cast-check --search "<terms>" [yt-dlp path or auto] [data dir]
  *
+ *  --cookies <file> uses a YouTube cookies file, like audiocast_cookies (the
+ *  AUDIOCAST_COOKIES environment variable works too).
+ *
  *  With a port it then streams the song like an in-game radio for the given
  *  number of seconds, at http://127.0.0.1:<port>/radio/1.mp3 (VLC, browser).
  */
@@ -19,7 +22,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <thread>
+#include <vector>
 
 namespace
 {
@@ -57,30 +62,38 @@ int serve(AudioCastConfig config, std::shared_ptr<const Track> track, int port, 
 
 int main(int argc, char** argv)
 {
-	const bool search = argc > 1 && std::strcmp(argv[1], "--search") == 0;
-	const int first = search ? 2 : 1;
-	if (argc <= first)
+	bool search = false;
+	std::string cookies;
+	if (const char* value = std::getenv("AUDIOCAST_COOKIES")) cookies = value;
+	std::vector<std::string> args; // positional arguments
+	for (int index = 1; index < argc; ++index)
+	{
+		if (std::strcmp(argv[index], "--search") == 0) search = true;
+		else if (std::strcmp(argv[index], "--cookies") == 0 && index + 1 < argc) cookies = argv[++index];
+		else args.push_back(argv[index]);
+	}
+	if (args.empty())
 	{
 		std::fprintf(stderr,
-			"usage: %s \"<link or search>\" [yt-dlp path or auto] [data dir] [port seconds]\n"
-			"       %s --search \"<terms>\" [yt-dlp path or auto] [data dir]\n",
+			"usage: %s [--cookies <file>] \"<link or search>\" [yt-dlp path or auto] [data dir] [port seconds]\n"
+			"       %s [--cookies <file>] --search \"<terms>\" [yt-dlp path or auto] [data dir]\n",
 			argv[0], argv[0]);
 		return EXIT_FAILURE;
 	}
 
 	AudioCastLogInit(nullptr);
 	AudioCastConfig config;
-	if (argc > first + 1) config.ytdlpPath = argv[first + 1];
-	if (argc > first + 2) config.dataDir = argv[first + 2];
+	if (args.size() > 1) config.ytdlpPath = args[1];
+	if (args.size() > 2) config.dataDir = args[2];
+	config.cookiesFile = cookies;
 	config.workers = 1;
-
 	TrackLoader loader;
 	loader.start(config);
 	LoadRequest request;
 	request.kind = search ? LoadRequest::Kind::Search : LoadRequest::Kind::Track;
 	request.radioId = 1;
 	request.requestId = 1;
-	request.query = argv[first];
+	request.query = args[0];
 	request.maxResults = 8;
 	loader.submit(request);
 
@@ -120,6 +133,6 @@ int main(int argc, char** argv)
 		secondsSince(started), track->durationMs(), track->frameCount(), track->byteCount());
 	std::fflush(stdout);
 	loader.stop();
-	if (argc > first + 4) return serve(config, track, std::atoi(argv[first + 3]), std::atoi(argv[first + 4]));
+	if (args.size() > 4) return serve(config, track, std::atoi(args[3].c_str()), std::atoi(args[4].c_str()));
 	return track->failed() ? EXIT_FAILURE : EXIT_SUCCESS;
 }

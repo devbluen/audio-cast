@@ -110,6 +110,17 @@ void TrackLoader::start(const AudioCastConfig& config)
 	tempDir_ = dataDir_ / "tmp";
 	ytdlp_.configure(config_.ytdlpPath, dataDir_ / "bin");
 
+	if (!config_.cookiesFile.empty())
+	{
+		std::string message;
+		const CookiesStatus cookies = CheckCookiesFile(config_.cookiesFile, message);
+		if (cookies == CookiesStatus::Ok) AudioCastLogMessage(message);
+		else AudioCastLogWarning(message);
+		// yt-dlp would create a missing file, and fail every download on an
+		// invalid one.
+		if (cookies == CookiesStatus::Missing || cookies == CookiesStatus::Invalid) config_.cookiesFile.clear();
+	}
+
 	std::error_code error;
 	fs::create_directories(tempDir_, error);
 	if (error)
