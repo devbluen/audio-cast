@@ -6,6 +6,7 @@
 #pragma once
 
 #include "config.hpp"
+#include "js-runtime.hpp"
 #include "track-events.hpp"
 #include "ytdlp.hpp"
 #include <atomic>
@@ -72,6 +73,7 @@ private:
 	std::filesystem::path dataDir_;
 	std::filesystem::path tempDir_;
 	YtDlp ytdlp_;
+	JsRuntime jsRuntime_;
 
 	std::vector<std::thread> workers_;
 	std::mutex mutex_;

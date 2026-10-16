@@ -30,6 +30,7 @@ Nothing to install. You only need an open **TCP port** in the firewall (default 
 - **yt-dlp** is managed by the plugin. On first start it downloads the official build for your OS and CPU into `scriptfiles/audiocast/bin/`, and it installs new releases (checked once a day). The unpacked build is used because it starts about a second faster on every song. yt-dlp stays a separate program on purpose: YouTube changes often, and yt-dlp gets fixes within days, without waiting for a new plugin release.
   - Windows uses the built-in WinHTTP. Linux needs `curl` or `wget` for that first download (present on virtually every host).
   - Prefer your own copy? Set `audiocast_ytdlp` to its path and the plugin will use it as is, without updating it.
+- **Deno** is managed the same way, into `scriptfiles/audiocast/deno/` (~100 MB). YouTube hides its audio behind JavaScript challenges, and yt-dlp needs a JavaScript runtime to solve them; without one many videos fail with `The page needs to be reloaded` or `Sign in to confirm you're not a bot`. Deno has 64-bit builds only (Windows, and Linux with glibc); elsewhere install Node.js and set `audiocast_js_runtime node`.
 
 ## Download
 
@@ -73,8 +74,9 @@ Each option can come from three places, in this order:
 | `audiocast_bitrate` | `128` | MP3 kbps (32–320). |
 | `audiocast_normalize` | `0` | `1` = even out the loudness of songs (to about -16 dBFS RMS, never clipping). The whole song is downloaded before it plays. |
 | `audiocast_ytdlp` | `auto` | `auto` = the plugin downloads and updates yt-dlp. Or the path of your own yt-dlp. |
+| `audiocast_js_runtime` | `auto` | JavaScript runtime yt-dlp uses to solve YouTube's challenges. `auto` = the plugin downloads and updates [Deno](https://deno.com) (~100 MB). `off` = none. Or a yt-dlp `--js-runtimes` value such as `node` or `deno:/path/to/deno`. |
 | `audiocast_cookies` | | YouTube cookies file (`cookies.txt`, path relative to the server folder), for when YouTube asks to "confirm you're not a bot" (common on VPS/datacenter IPs). Step by step: [wiki](https://github.com/devbluen/audio-cast/wiki/YouTube-Cookies). |
-| `audiocast_data_dir` | `scriptfiles/audiocast` | Holds the managed yt-dlp (~18 MB) and short-lived temporary files. Songs are never saved here. |
+| `audiocast_data_dir` | `scriptfiles/audiocast` | Holds the managed yt-dlp (~18 MB), Deno (~100 MB) and short-lived temporary files. Songs are never saved here. |
 | `audiocast_cache_minutes` | `0` | How long a song stays **in memory** after no radio uses it, so replaying it is instant. `0` frees it right away. |
 | `audiocast_max_duration` | `1800` | Longest accepted song, in seconds. Live streams are always rejected. |
 | `audiocast_download_timeout` | `300` | Time limit for each download/conversion, in seconds. |
@@ -249,7 +251,7 @@ audio-cast-check --cookies scriptfiles/audiocast/cookies.txt "https://youtu.be/d
 ## Notes
 
 - **Timing:** game clients buffer a few seconds of any audio stream before playing, and AudioCast keeps everyone in sync by giving all of them the same `audiocast_burst_ms` of buffer. So players hear the radio about 4 s after the server produces it. The getters and `OnRadioTrackStart`/`End` follow what players hear, so chat messages match the audio. Commands (`Radio_Pause`, `Skip`, `Seek`, `Play`, the volume) act on the server right away and **reach the ears after that delay**: after a pause, the song keeps playing for about 4 s; after a resume, it comes back about 4 s later. This is inherent to streaming to the unmodified game client.
-- **Disk space:** songs only live in memory, about 1 MB per minute of music, while a radio plays or queues them (plus `audiocast_cache_minutes`). They are freed when no radio uses them. On disk there is only the yt-dlp program. Leftovers from a crash, and songs saved by version 1.0, are deleted on startup.
+- **Disk space:** songs only live in memory, about 1 MB per minute of music, while a radio plays or queues them (plus `audiocast_cache_minutes`). They are freed when no radio uses them. On disk there are only the yt-dlp and Deno programs. Leftovers from a crash, and songs saved by version 1.0, are deleted on startup.
 - **Loading time:** a song is ready to play 3–5 s after `Radio_Play` (searching by text in the same call adds about a second); the rest loads while it plays. If two radios play the same song, it is fetched only once. With `audiocast_normalize 1` the whole song must be downloaded first, so it takes longer.
 - **Formats:** the plugin uses YouTube's Opus audio stream, which practically every video has. Videos without one (often recent uploads) play from their AAC (m4a) stream instead.
 - **Clean cuts:** every MP3 frame is encoded on its own (no bit reservoir), so pausing, seeking, skipping and joining mid-song never produce clicks.

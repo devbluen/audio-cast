@@ -18,10 +18,12 @@ O motivo chega em `OnRadioTrackError(..., error[])` e no log do servidor.
 | Erro | Causa e solução |
 |---|---|
 | `Sign in to confirm you're not a bot` | Comum em IPs de VPS/datacenter. Dê ao plugin um login do YouTube com `audiocast_cookies`: veja [Cookies do YouTube](Cookies-do-YouTube). |
+| `The page needs to be reloaded` | O yt-dlp não conseguiu resolver o desafio em JavaScript do YouTube, normalmente por não ter um runtime de JavaScript. Deixe `audiocast_js_runtime auto` (o padrão) e procure `using deno ...` ou `installed deno ...` no log. Se não aparecer (Linux 32 bits ou musl, ou o download falhou), instale o Node.js e configure `audiocast_js_runtime node`. |
 | `video is live, longer than audiocast_max_duration or has no usable audio` | Lives não são suportadas. Para vídeos longos (sets de DJ) aumente `audiocast_max_duration`. |
 | `Requested format is not available` | Versões do plugin anteriores ao suporte a AAC só tocavam vídeos com áudio Opus. Atualize o plugin. Se continuar, o YouTube mudou algo: o yt-dlp se atualiza todo dia; apague `scriptfiles/audiocast/bin/` para forçar um download novo agora. |
 | `not a YouTube link, video ID or search` | Só o YouTube é suportado; links de outros sites são recusados. |
 | `yt-dlp is not available yet` | O primeiro download do yt-dlp falhou (sem internet, ou sem `curl`/`wget` no Linux). Ele tenta de novo sozinho. |
+| Log: `Deno has no build for this machine` | Sistema 32 bits ou Linux Alpine/musl. Instale o Node.js (`apt install nodejs`) e configure `audiocast_js_runtime node`. |
 | `Video unavailable` / `Private video` | Vídeo bloqueado na região, privado, removido ou com restrição de idade. Os com restrição de idade precisam de `audiocast_cookies`. |
 
 Teste uma música fora do jogo com a ferramenta que vem no zip; ela roda o mesmo código do plugin:

@@ -32,7 +32,7 @@ plugins audio-cast.dll
 
 Copy `include/audio-cast.inc` to `qawno/include` (open.mp) or `pawno/include` (SA-MP).
 
-Nothing else is installed: the audio conversion is built into the plugin, and the plugin downloads and updates [yt-dlp](https://github.com/yt-dlp/yt-dlp) by itself into `scriptfiles/audiocast/bin/`. On Linux that first download needs `curl` or `wget`.
+Nothing else is installed: the audio conversion is built into the plugin, and the plugin downloads and updates [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [Deno](https://deno.com) (the JavaScript runtime yt-dlp needs for YouTube) by itself into `scriptfiles/audiocast/`. The first start downloads about 60 MB. On Linux that download needs `curl` or `wget`.
 
 ## 3. Open a port and set the public address
 

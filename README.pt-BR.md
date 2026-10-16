@@ -30,6 +30,7 @@ Não precisa instalar nada. Só é preciso uma **porta TCP** liberada no firewal
 - **yt-dlp:** é gerenciado pelo plugin. Na primeira inicialização ele baixa a build oficial do yt-dlp para o seu sistema e processador em `scriptfiles/audiocast/bin/` e instala as versões novas (confere uma vez por dia). É usada a build descompactada, que abre cerca de 1 segundo mais rápido em cada música. O yt-dlp continua sendo um programa separado de propósito: o YouTube muda com frequência e o yt-dlp recebe correções em dias, sem precisar esperar uma nova versão do plugin.
   - No Windows o download usa o WinHTTP do próprio sistema. No Linux, esse primeiro download precisa de `curl` ou `wget` (presentes em praticamente qualquer hospedagem).
   - Prefere usar o seu? Coloque o caminho em `audiocast_ytdlp`. O plugin usa como está e não o atualiza.
+- **Deno:** é gerenciado do mesmo jeito, em `scriptfiles/audiocast/deno/` (~100 MB). O YouTube esconde o áudio atrás de desafios em JavaScript, e o yt-dlp precisa de um runtime de JavaScript para resolvê-los; sem ele muitos vídeos falham com `The page needs to be reloaded` ou `Sign in to confirm you're not a bot`. O Deno só tem builds 64 bits (Windows, e Linux com glibc); nos outros casos instale o Node.js e configure `audiocast_js_runtime node`.
 
 ## Download
 
@@ -73,8 +74,9 @@ Cada opção pode vir de três lugares, nesta ordem:
 | `audiocast_bitrate` | `128` | kbps do MP3 (32–320). |
 | `audiocast_normalize` | `0` | `1` = iguala o volume entre as músicas (cerca de -16 dBFS RMS, sem distorcer). A música inteira é baixada antes de tocar. |
 | `audiocast_ytdlp` | `auto` | `auto` = o plugin baixa e atualiza o yt-dlp. Ou o caminho de um yt-dlp seu. |
+| `audiocast_js_runtime` | `auto` | Runtime de JavaScript que o yt-dlp usa para resolver os desafios do YouTube. `auto` = o plugin baixa e atualiza o [Deno](https://deno.com) (~100 MB). `off` = nenhum. Ou um valor do `--js-runtimes` do yt-dlp, como `node` ou `deno:/caminho/do/deno`. |
 | `audiocast_cookies` | | Arquivo de cookies do YouTube (`cookies.txt`, caminho relativo à pasta do servidor), para quando o YouTube pede "confirme que não é um robô" (comum em VPS/datacenter). Passo a passo: [wiki](https://github.com/devbluen/audio-cast/wiki/Cookies-do-YouTube). |
-| `audiocast_data_dir` | `scriptfiles/audiocast` | Guarda o yt-dlp gerenciado (~18 MB) e arquivos temporários de vida curta. Músicas nunca são salvas aqui. |
+| `audiocast_data_dir` | `scriptfiles/audiocast` | Guarda o yt-dlp (~18 MB) e o Deno (~100 MB) gerenciados e arquivos temporários de vida curta. Músicas nunca são salvas aqui. |
 | `audiocast_cache_minutes` | `0` | Quanto tempo uma música fica **em memória** depois que nenhuma rádio a usa, para tocar de novo na hora. `0` libera imediatamente. |
 | `audiocast_max_duration` | `1800` | Duração máxima aceita, em segundos. Lives são sempre recusadas. |
 | `audiocast_download_timeout` | `300` | Tempo limite de cada download/conversão, em segundos. |
@@ -251,7 +253,7 @@ audio-cast-check --cookies scriptfiles/audiocast/cookies.txt "https://youtu.be/d
 ## Observações
 
 - **Tempo:** o cliente do jogo guarda alguns segundos de qualquer stream de áudio antes de tocar, e o AudioCast mantém todo mundo sincronizado dando a todos o mesmo buffer de `audiocast_burst_ms`. Por isso os jogadores ouvem a rádio cerca de 4 s depois de o servidor produzi-la. Os getters e o `OnRadioTrackStart`/`End` acompanham o que os jogadores ouvem, então as mensagens no chat batem com o áudio. Os comandos (`Radio_Pause`, `Skip`, `Seek`, `Play`, o volume) agem no servidor na hora e **chegam aos ouvidos depois desse atraso**: depois de pausar, a música ainda toca cerca de 4 s; depois de retomar, ela volta cerca de 4 s depois. Isso é inerente a transmitir para o cliente do jogo sem modificações.
-- **Espaço em disco:** as músicas só existem em memória (cerca de 1 MB por minuto de música) enquanto alguma rádio toca ou tem a música na fila, mais o tempo de `audiocast_cache_minutes`. Depois disso são liberadas. No disco fica só o programa yt-dlp. Sobras de um crash e músicas salvas pela versão 1.0 são apagadas na inicialização.
+- **Espaço em disco:** as músicas só existem em memória (cerca de 1 MB por minuto de música) enquanto alguma rádio toca ou tem a música na fila, mais o tempo de `audiocast_cache_minutes`. Depois disso são liberadas. No disco ficam só os programas yt-dlp e Deno. Sobras de um crash e músicas salvas pela versão 1.0 são apagadas na inicialização.
 - **Tempo de carregamento:** a música fica pronta para tocar 3–5 s depois do `Radio_Play` (buscar por texto na mesma chamada soma cerca de 1 s); o resto carrega enquanto toca. Se duas rádios tocarem a mesma música, ela é baixada uma vez só. Com `audiocast_normalize 1` a música inteira precisa ser baixada antes, então demora mais.
 - **Formatos:** o plugin usa o áudio Opus do YouTube, que praticamente todo vídeo tem. Vídeos sem ele (muitas vezes uploads recentes) tocam pelo áudio AAC (m4a).
 - **Cortes limpos:** cada frame MP3 é codificado de forma independente (sem reservatório de bits), então pausar, pular, avançar e entrar no meio da música nunca geram estalos.

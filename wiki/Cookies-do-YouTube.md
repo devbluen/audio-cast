@@ -99,4 +99,5 @@ Rode na pasta do servidor. Se terminar com `fully loaded`, está tudo certo.
 
 - **O yt-dlp atualiza o arquivo** a cada música (ele grava os cookies renovados de volta). Deixe o arquivo com permissão de escrita e não estranhe se o conteúdo mudar.
 - **Cookies vencem.** Se o `Sign in to confirm you're not a bot` voltar depois de semanas, repita o Passo 1 e substitua o arquivo.
-- Ainda bloqueado mesmo com cookies válidos? Alguns IPs são bloqueados com mais força; espere algumas horas ou use outra conta.
+- `The page needs to be reloaded` depois de configurar os cookies? O yt-dlp precisa de um runtime de JavaScript para usá-los: veja [Solução de Problemas](Solucao-de-Problemas). O plugin instala um (o Deno) sozinho; o log mostra `using deno ...`.
+- Ainda bloqueado mesmo com cookies válidos? Alguns IPs são bloqueados com mais força (`HTTP Error 429: Too Many Requests` significa pedidos demais do seu IP); espere algumas horas ou use outra conta.

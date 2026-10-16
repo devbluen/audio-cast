@@ -86,6 +86,7 @@ int main(int argc, char** argv)
 	if (args.size() > 1) config.ytdlpPath = args[1];
 	if (args.size() > 2) config.dataDir = args[2];
 	config.cookiesFile = cookies;
+	if (const char* value = std::getenv("AUDIOCAST_JS_RUNTIME")) config.jsRuntime = value;
 	config.workers = 1;
 	TrackLoader loader;
 	loader.start(config);

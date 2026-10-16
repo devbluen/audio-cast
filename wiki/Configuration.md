@@ -18,8 +18,9 @@ Each option can be set in three places. The first one found wins:
 | `audiocast_bitrate` | `128` | MP3 kbps, 32-320. Each listener uses this much bandwidth (128 kbps ≈ 16 KB/s). |
 | `audiocast_normalize` | `0` | `1` = even out the loudness of songs (about -16 dBFS RMS, never clipping). Songs take longer to start: the whole file is downloaded first. |
 | `audiocast_ytdlp` | `auto` | `auto` = managed yt-dlp, updated daily. Or the path of your own yt-dlp (used as is, never updated). |
+| `audiocast_js_runtime` | `auto` | JavaScript runtime yt-dlp uses to solve YouTube's challenges. `auto` = the plugin downloads and updates [Deno](https://deno.com) (~100 MB). `off` = none. Or a yt-dlp `--js-runtimes` value such as `node` or `deno:/path/to/deno`. |
 | `audiocast_cookies` | | YouTube cookies file, for when YouTube asks to "confirm you're not a bot". Step by step: [YouTube Cookies](YouTube-Cookies). |
-| `audiocast_data_dir` | `scriptfiles/audiocast` | Managed yt-dlp and short-lived temporary files. Songs are never stored on disk. |
+| `audiocast_data_dir` | `scriptfiles/audiocast` | Managed yt-dlp, Deno and short-lived temporary files. Songs are never stored on disk. |
 | `audiocast_cache_minutes` | `0` | Keep a song in memory this long after no radio uses it, so replaying it is instant. |
 | `audiocast_max_duration` | `1800` | Longest accepted song, in seconds. Live streams are always rejected. |
 | `audiocast_download_timeout` | `300` | Time limit per download, in seconds. |
@@ -61,4 +62,4 @@ audiocast_public_port 28000    # what goes into the URL
 
 ## Memory and disk
 
-Songs live only in memory, about 1 MB per minute of music, while a radio plays or queues them (plus `audiocast_cache_minutes`). A song played on several radios is downloaded once. On disk there is only the yt-dlp program (~18 MB).
+Songs live only in memory, about 1 MB per minute of music, while a radio plays or queues them (plus `audiocast_cache_minutes`). A song played on several radios is downloaded once. On disk there are only the yt-dlp (~18 MB) and Deno (~100 MB) programs.

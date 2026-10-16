@@ -80,6 +80,7 @@ endforeach()
 add_library(audio-cast-core STATIC
 	src/config.cpp
 	src/decoder.cpp
+	src/js-runtime.cpp
 	src/loader.cpp
 	src/log.cpp
 	src/mp3.cpp

@@ -34,6 +34,9 @@ struct AudioCastConfig
 
 	// "auto": AudioCast downloads and updates yt-dlp by itself.
 	std::string ytdlpPath = "auto";
+	// JavaScript runtime for YouTube's challenges: "auto" (managed Deno),
+	// "off", or a yt-dlp --js-runtimes value such as "node".
+	std::string jsRuntime = "auto";
 	std::string cookiesFile;
 	// Holds the managed yt-dlp and short-lived temporary files.  Songs are
 	// never written to disk.

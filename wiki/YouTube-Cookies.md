@@ -99,4 +99,5 @@ Run it from the server folder. If it ends with `fully loaded`, everything is set
 
 - **yt-dlp updates the file** on every song (it writes the renewed cookies back). Keep the file writable and do not worry if its content changes.
 - **Cookies expire.** If `Sign in to confirm you're not a bot` comes back weeks later, repeat Step 1 and replace the file.
-- Still blocked with valid cookies? Some IPs are blocked harder; wait a few hours or use another account.
+- `The page needs to be reloaded` after setting up cookies? yt-dlp needs a JavaScript runtime to use them: see [Troubleshooting](Troubleshooting). The plugin installs one (Deno) by itself; the log shows `using deno ...`.
+- Still blocked with valid cookies? Some IPs are blocked harder (`HTTP Error 429: Too Many Requests` means too many requests from your IP); wait a few hours or use another account.

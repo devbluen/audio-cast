@@ -18,8 +18,9 @@ Cada opção pode vir de três lugares. Vale o primeiro encontrado:
 | `audiocast_bitrate` | `128` | kbps do MP3, 32-320. Cada ouvinte consome essa banda (128 kbps ≈ 16 KB/s). |
 | `audiocast_normalize` | `0` | `1` = iguala o volume entre as músicas (cerca de -16 dBFS RMS, sem distorcer). As músicas demoram mais para começar: o arquivo inteiro é baixado antes. |
 | `audiocast_ytdlp` | `auto` | `auto` = yt-dlp gerenciado, atualizado todo dia. Ou o caminho de um yt-dlp seu (usado como está, nunca atualizado). |
+| `audiocast_js_runtime` | `auto` | Runtime de JavaScript que o yt-dlp usa para resolver os desafios do YouTube. `auto` = o plugin baixa e atualiza o [Deno](https://deno.com) (~100 MB). `off` = nenhum. Ou um valor do `--js-runtimes` do yt-dlp, como `node` ou `deno:/caminho/do/deno`. |
 | `audiocast_cookies` | | Arquivo de cookies do YouTube, para quando o YouTube pede "confirme que não é um robô". Passo a passo: [Cookies do YouTube](Cookies-do-YouTube). |
-| `audiocast_data_dir` | `scriptfiles/audiocast` | yt-dlp gerenciado e arquivos temporários de vida curta. Músicas nunca são gravadas em disco. |
+| `audiocast_data_dir` | `scriptfiles/audiocast` | yt-dlp e Deno gerenciados e arquivos temporários de vida curta. Músicas nunca são gravadas em disco. |
 | `audiocast_cache_minutes` | `0` | Mantém a música em memória por esse tempo depois que nenhuma rádio a usa, para tocar de novo na hora. |
 | `audiocast_max_duration` | `1800` | Duração máxima aceita, em segundos. Lives são sempre recusadas. |
 | `audiocast_download_timeout` | `300` | Tempo limite de cada download, em segundos. |
@@ -61,4 +62,4 @@ audiocast_public_port 28000    # o que vai na URL
 
 ## Memória e disco
 
-As músicas só existem em memória, cerca de 1 MB por minuto de música, enquanto alguma rádio toca ou tem a música na fila (mais `audiocast_cache_minutes`). Uma música tocada em várias rádios é baixada uma vez só. No disco fica só o programa yt-dlp (~18 MB).
+As músicas só existem em memória, cerca de 1 MB por minuto de música, enquanto alguma rádio toca ou tem a música na fila (mais `audiocast_cache_minutes`). Uma música tocada em várias rádios é baixada uma vez só. No disco ficam só os programas yt-dlp (~18 MB) e Deno (~100 MB).

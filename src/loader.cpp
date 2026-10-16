@@ -109,6 +109,7 @@ void TrackLoader::start(const AudioCastConfig& config)
 	dataDir_ = fs::u8path(config_.dataDir);
 	tempDir_ = dataDir_ / "tmp";
 	ytdlp_.configure(config_.ytdlpPath, dataDir_ / "bin");
+	jsRuntime_.configure(config_.jsRuntime, dataDir_ / "deno");
 
 	if (!config_.cookiesFile.empty())
 	{
@@ -208,7 +209,9 @@ void TrackLoader::prepare()
 		if (!stopping_) AudioCastLogWarning(error);
 		return;
 	}
+	jsRuntime_.ensure(stopping_);
 	ytdlp_.updateIfDue(stopping_);
+	jsRuntime_.updateIfDue(stopping_);
 }
 
 void TrackLoader::maintenance()
@@ -230,6 +233,7 @@ void TrackLoader::maintenance()
 		}
 	}
 	ytdlp_.updateIfDue(stopping_);
+	jsRuntime_.updateIfDue(stopping_);
 }
 
 void TrackLoader::workerLoop(int index)
@@ -289,6 +293,12 @@ std::vector<std::string> TrackLoader::ytdlpBaseArgs() const
 		"--encoding", "utf-8",
 		"--cache-dir", (dataDir_ / "ytdlp-cache").u8string(),
 	};
+	const std::string jsRuntime = jsRuntime_.argument();
+	if (!jsRuntime.empty())
+	{
+		args.push_back("--js-runtimes");
+		args.push_back(jsRuntime);
+	}
 	if (!config_.cookiesFile.empty())
 	{
 		args.push_back("--cookies");
@@ -317,6 +327,7 @@ void TrackLoader::processSearch(const LoadRequest& request)
 		publish(std::move(result));
 		return;
 	}
+	jsRuntime_.ensure(stopping_);
 
 	// Live streams cannot be played and are left out, so ask for a few more.
 	const std::string target = query.kind == Text::Query::Kind::Video
@@ -326,6 +337,7 @@ void TrackLoader::processSearch(const LoadRequest& request)
 	ProcessResult run;
 	{
 		std::shared_lock<std::shared_mutex> lock(ytdlp_.mutex());
+		std::shared_lock<std::shared_mutex> jsLock(jsRuntime_.mutex());
 		std::vector<std::string> args = ytdlpBaseArgs();
 		args.insert(args.end(), {
 			"--flat-playlist",
@@ -471,6 +483,7 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 		publish(std::move(result));
 		return;
 	}
+	jsRuntime_.ensure(stopping_);
 
 	// The audio (Opus in WebM, or AAC in MP4 for videos without Opus) comes
 	// through stdout and is converted as it arrives.  With audiocast_normalize
@@ -516,6 +529,7 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 	ProcessResult run;
 	{
 		std::shared_lock<std::shared_mutex> lock(ytdlp_.mutex());
+		std::shared_lock<std::shared_mutex> jsLock(jsRuntime_.mutex());
 		std::vector<std::string> args = ytdlpBaseArgs();
 		args.insert(args.end(), {
 			// Decoded by the plugin itself.  Opus first; some videos (often
