@@ -28,6 +28,7 @@ Each option can be set in three places. The first one found wins:
 | `audiocast_max_listeners` | `500` | Total stream connections. Extra ones get `503`. |
 | `audiocast_allow_public` | `0` | `1` = allow `http://host:port/radio/<id>.mp3` without a player token (VLC, browser, Discord bots). |
 | `audiocast_utf8` | `0` | `1` = exchange text with Pawn as UTF-8. By default titles are converted to Windows-1252, which the SA-MP chat shows correctly. |
+| `audiocast_log_songs` | `0` | `1` = write "loaded <id> (<title>)" to the server console for every song. Errors and warnings are always shown. |
 
 ## Examples
 

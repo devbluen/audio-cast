@@ -587,7 +587,7 @@ void TrackLoader::fetch(const LoadRequest& request, const std::string& target, c
 	{
 		if (!published) publishTrack();
 		track->finish(false);
-		AudioCastLogMessage("loaded " + track->videoId + " (" + track->title + ")");
+		if (config_.logSongs) AudioCastLogMessage("loaded " + track->videoId + " (" + track->title + ")");
 	}
 	else if (published)
 	{

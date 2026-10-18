@@ -12,7 +12,7 @@
 namespace
 {
 const char* const kKeys[] = {
-	"bind", "port", "public_host", "public_port", "burst_ms", "bitrate", "normalize", "allow_public", "utf8",
+	"bind", "port", "public_host", "public_port", "burst_ms", "bitrate", "normalize", "allow_public", "utf8", "log_songs",
 	"ytdlp", "js_runtime", "cookies", "data_dir", "cache_minutes", "max_duration", "download_timeout", "workers", "max_listeners",
 	nullptr,
 };
@@ -73,6 +73,7 @@ AudioCastConfig LoadAudioCastConfig(const std::function<std::string(const std::s
 	readBool("normalize", config.normalize);
 	readBool("allow_public", config.allowPublic);
 	readBool("utf8", config.utf8);
+	readBool("log_songs", config.logSongs);
 	readString("ytdlp", config.ytdlpPath);
 	readString("js_runtime", config.jsRuntime);
 	readString("cookies", config.cookiesFile);

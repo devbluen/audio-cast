@@ -31,6 +31,9 @@ struct AudioCastConfig
 	bool allowPublic = false;
 	// Strings exchanged with Pawn are Windows-1252 unless this is enabled.
 	bool utf8 = false;
+	// Writes "loaded <id> (<title>)" to the server console for every song.
+	// Errors and warnings are always logged.
+	bool logSongs = false;
 
 	// "auto": AudioCast downloads and updates yt-dlp by itself.
 	std::string ytdlpPath = "auto";

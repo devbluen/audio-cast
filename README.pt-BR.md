@@ -84,6 +84,7 @@ Cada opção pode vir de três lugares, nesta ordem:
 | `audiocast_max_listeners` | `500` | Conexões de stream simultâneas no total. |
 | `audiocast_allow_public` | `0` | `1` = permite abrir `http://host:porta/radio/<id>.mp3` sem token (VLC, navegador, Discord bot…). |
 | `audiocast_utf8` | `0` | `1` = troca texto com o Pawn em UTF-8. No padrão, títulos são convertidos para Windows-1252, que é o que o chat do SA-MP mostra (acentos funcionam). |
+| `audiocast_log_songs` | `0` | `1` = escreve "loaded <id> (<título>)" no console do servidor a cada música. Erros e avisos sempre aparecem. |
 
 Exemplo de `server.cfg`:
 
