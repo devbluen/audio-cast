@@ -116,6 +116,15 @@ void testText()
 	CHECK(Text::utf8ToLatin1("\xE6\x97\xA5") == "?");
 	CHECK(Text::latin1ToUtf8("Can\xE7\xE3o") == "Canção");
 	CHECK(Text::utf8ToLatin1(Text::latin1ToUtf8("\xC1\xE9\xED\xF3\xFA")) == "\xC1\xE9\xED\xF3\xFA");
+	CHECK(Text::utf8ToCodepage("Spr\xC4\x99\xC5\xBCynka", 1250) == "Spr\xEA\xBF" "ynka");
+	CHECK(Text::utf8ToCodepage("Spre\xCC\xA8z\xCC\x87ynka Le\xCC\x81s\xCC\x81ny", 1250) == "Spr\xEA\xBF" "ynka L\xE9\x9C" "ny");
+	CHECK(Text::utf8ToCodepage("Spr\xC4\x99\xC5\xBCynka", 1252) == "Sprezynka");
+	CHECK(Text::utf8ToCodepage("Can\xC3\xA7\xC3\xA3o \xE2\x80\x93", 1252) == "Can\xE7\xE3o \x96");
+	CHECK(Text::utf8ToCodepage("\xE6\x97\xA5 a\xCC\x81", 1250) == "? \xE1");
+	CHECK(Text::utf8ToCodepage("\xD0\x9F\xD1\x80\xD0\xB8", 1251) == "\xCF\xF0\xE8");
+	CHECK(Text::utf8ToCodepage("Spr\xC4\x99\xC5\xBCynka \xC3\xA9 \xE2\x80\x93", 0) == "Sprezynka e -");
+	CHECK(Text::isSupportedCodepage(0) && Text::isSupportedCodepage(1250) && Text::isSupportedCodepage(1258));
+	CHECK(!Text::isSupportedCodepage(1249) && !Text::isSupportedCodepage(1259) && !Text::isSupportedCodepage(65001));
 	const std::string token = Text::randomToken(24);
 	CHECK(token.size() == 24);
 	CHECK(token != Text::randomToken(24));

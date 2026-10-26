@@ -4,11 +4,16 @@
  */
 
 #include "text.hpp"
+#include "codepages.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <mutex>
+#include <cstdlib>
+#include <memory>
 #include <random>
+#include <utility>
+#include <utf8proc.h>
 
 namespace Text
 {
@@ -209,6 +214,78 @@ std::string latin1ToUtf8(const std::string& text)
 		}
 	}
 	return output;
+}
+
+namespace
+{
+// Letters that have no decomposition into a plain letter and an accent.
+constexpr std::pair<utf8proc_int32_t, char> kUndecomposable[] = {
+	{ 0x00C6, 'A' }, { 0x00D0, 'D' }, { 0x00D8, 'O' }, { 0x00DE, 'T' }, { 0x00DF, 's' }, { 0x00E6, 'a' }, { 0x00F0, 'd' },
+	{ 0x00F8, 'o' }, { 0x00FE, 't' }, { 0x0110, 'D' }, { 0x0111, 'd' }, { 0x0126, 'H' }, { 0x0127, 'h' }, { 0x0131, 'i' },
+	{ 0x0141, 'L' }, { 0x0142, 'l' }, { 0x0152, 'O' }, { 0x0153, 'o' }, { 0x0166, 'T' }, { 0x0167, 't' },
+};
+
+// The closest ASCII text for a character the code page does not have.
+bool appendFallback(std::string& output, utf8proc_int32_t codepoint)
+{
+	if (codepoint == 0x2018 || codepoint == 0x2019 || codepoint == 0x2032) output.push_back('\'');
+	else if (codepoint == 0x201C || codepoint == 0x201D || codepoint == 0x2033) output.push_back('"');
+	else if (codepoint == 0x2013 || codepoint == 0x2014 || codepoint == 0x2212) output.push_back('-');
+	else if (codepoint == 0x2026) output += "...";
+	else if (codepoint == 0x2022) output.push_back('*');
+	else if (utf8proc_category(codepoint) == UTF8PROC_CATEGORY_MN) return true; // a mark that did not compose
+	else
+	{
+		for (const auto& letter : kUndecomposable)
+		{
+			if (letter.first != codepoint) continue;
+			output.push_back(letter.second);
+			return true;
+		}
+
+		utf8proc_int32_t decomposed[4];
+		int boundclass = 0;
+		const utf8proc_ssize_t length = utf8proc_decompose_char(codepoint, decomposed, 4, UTF8PROC_DECOMPOSE, &boundclass);
+		if (length < 1 || length > 4 || decomposed[0] >= 0x80) return false;
+		output.push_back(static_cast<char>(decomposed[0]));
+	}
+	return true;
+}
+}
+
+std::string utf8ToCodepage(const std::string& text, int codepage)
+{
+	// YouTube titles are often decomposed ("e" + U+0328): compose them into
+	// one letter first so they can be encoded.
+	utf8proc_uint8_t* composed = nullptr;
+	const utf8proc_ssize_t length = utf8proc_map(reinterpret_cast<const utf8proc_uint8_t*>(text.c_str()), static_cast<utf8proc_ssize_t>(text.size()), &composed,
+		static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE));
+	// Not UTF-8: the text is already in a code page.
+	if (length < 0) return text;
+	const std::unique_ptr<utf8proc_uint8_t, decltype(&std::free)> owner(composed, &std::free);
+
+	const std::uint16_t* const table = codepageTable(codepage);
+	std::string output;
+	output.reserve(static_cast<std::size_t>(length));
+	for (utf8proc_ssize_t index = 0; index < length;)
+	{
+		utf8proc_int32_t codepoint = 0;
+		index += utf8proc_iterate(composed + index, length - index, &codepoint);
+		if (codepoint < 0x80)
+		{
+			output.push_back(static_cast<char>(codepoint));
+			continue;
+		}
+		const std::uint16_t* const found = table ? std::find(table, table + 128, static_cast<std::uint16_t>(codepoint)) : nullptr;
+		if (codepoint <= 0xFFFF && found && found != table + 128) output.push_back(static_cast<char>(0x80 + (found - table)));
+		else if (!appendFallback(output, codepoint)) output.push_back('?');
+	}
+	return output;
+}
+
+bool isSupportedCodepage(int codepage)
+{
+	return codepage == 0 || codepageTable(codepage) != nullptr;
 }
 
 std::string trim(const std::string& value)

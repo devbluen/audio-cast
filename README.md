@@ -84,6 +84,7 @@ Each option can come from three places, in this order:
 | `audiocast_max_listeners` | `500` | Total simultaneous stream connections. |
 | `audiocast_allow_public` | `0` | `1` = allow `http://host:port/radio/<id>.mp3` without a token (VLC, browser, Discord bot…). |
 | `audiocast_utf8` | `0` | `1` = exchange text with Pawn as UTF-8. By default titles are converted to Windows-1252, which is what the SA-MP chat displays (accents work). |
+| `audiocast_metadata_codepage` | `1252` | Code page of the song title the game client shows over the stream: a Windows code page from `1250` to `1258` (`1250` central Europe, `1251` Cyrillic, `1252` western Europe, ...) or `0` for plain ASCII. Letters the code page lacks lose their accent. |
 | `audiocast_log_songs` | `0` | `1` = write "loaded <id> (<title>)" to the server console for every song. Errors and warnings are always shown. |
 
 `server.cfg` example:

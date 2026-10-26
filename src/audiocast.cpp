@@ -101,6 +101,7 @@ void AudioCastComponent::provideConfiguration(ILogger&, IEarlyConfig& config, bo
 	config.setBool("audiocast.normalize", fallback.normalize);
 	config.setBool("audiocast.allow_public", fallback.allowPublic);
 	config.setBool("audiocast.utf8", fallback.utf8);
+	config.setInt("audiocast.metadata_codepage", fallback.metadataCodepage);
 	config.setBool("audiocast.log_songs", fallback.logSongs);
 	config.setString("audiocast.ytdlp", fallback.ytdlpPath);
 	config.setString("audiocast.js_runtime", fallback.jsRuntime);

@@ -30,6 +30,10 @@ FetchContent_Declare(lame
 	URL https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
 	URL_HASH SHA256=ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
 )
+FetchContent_Declare(utf8proc
+	URL https://github.com/JuliaStrings/utf8proc/archive/refs/tags/v2.10.0.tar.gz
+	URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136
+)
 FetchContent_Declare(miniz
 	URL https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip
 	URL_HASH SHA256=ada38db0b703a56d3dd6d57bf84a9c5d664921d870d8fea4db153979fb5332c5
@@ -49,11 +53,13 @@ set(BUILD_SHARED_LIBS OFF)
 set(BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(FDK_AAC_INSTALL_CMAKE_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
 set(FDK_AAC_INSTALL_PKGCONFIG_MODULE OFF CACHE BOOL "" FORCE)
+set(UTF8PROC_INSTALL OFF CACHE BOOL "" FORCE)
+set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING_SAVED ${BUILD_TESTING})
 set(BUILD_TESTING OFF)
 # asio, LAME and the miniz release have no top-level CMakeLists.txt: they are
 # only downloaded.
-FetchContent_MakeAvailable(asio opus fdkaac lame miniz)
+FetchContent_MakeAvailable(asio opus fdkaac lame miniz utf8proc)
 set(BUILD_TESTING ${BUILD_TESTING_SAVED})
 unset(BUILD_SHARED_LIBS)
 unset(CMAKE_POLICY_DEFAULT_CMP0077)
@@ -110,3 +116,6 @@ if(MSVC)
 else()
 	target_compile_options(audiocast-miniz PRIVATE -w)
 endif()
+
+# --- utf8proc -----------------------------------------------------------------
+set_target_properties(utf8proc PROPERTIES POSITION_INDEPENDENT_CODE ON)

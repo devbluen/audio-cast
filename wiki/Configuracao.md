@@ -28,6 +28,7 @@ Cada opção pode vir de três lugares. Vale o primeiro encontrado:
 | `audiocast_max_listeners` | `500` | Total de conexões de stream. As que passarem recebem `503`. |
 | `audiocast_allow_public` | `0` | `1` = permite `http://host:porta/radio/<id>.mp3` sem token de jogador (VLC, navegador, bot de Discord). |
 | `audiocast_utf8` | `0` | `1` = troca texto com o Pawn em UTF-8. No padrão os títulos são convertidos para Windows-1252, que o chat do SA-MP mostra corretamente. |
+| `audiocast_metadata_codepage` | `1252` | Código de página do título que o cliente do jogo mostra no stream: um código de página do Windows de `1250` a `1258` (`1250` Europa central, `1251` cirílico, `1252` Europa ocidental, ...) ou `0` para ASCII puro. Letras que faltam no código de página perdem o acento. |
 | `audiocast_log_songs` | `0` | `1` = escreve "loaded <id> (<título>)" no console do servidor a cada música. Erros e avisos sempre aparecem. |
 
 ## Exemplos
