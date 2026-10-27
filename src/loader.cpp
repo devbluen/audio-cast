@@ -247,7 +247,9 @@ void TrackLoader::workerLoop(int index)
 		bool haveRequest = false;
 		{
 			std::unique_lock<std::mutex> lock(mutex_);
-			wake_.wait_until(lock, nextMaintenance, [this] { return stopping_ || !pending_.empty(); });
+			const auto ready = [this] { return stopping_ || !pending_.empty(); };
+			if (index == 0) wake_.wait_until(lock, nextMaintenance, ready);
+			else wake_.wait(lock, ready);
 			if (stopping_) return;
 			if (!pending_.empty())
 			{
