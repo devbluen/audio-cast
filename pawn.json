@@ -1,0 +1,12 @@
+{
+	"name": "audio-cast",
+	"version": "1.0.0",
+	"include": "include",
+	"plugins": {
+		"windows": "audio-cast-*-windows-x86.zip",
+		"linux": "audio-cast-*-linux-x86.zip"
+	},
+	"dependencies": {
+		"pawn-lang/samp-stdlib": "latest"
+	}
+}
