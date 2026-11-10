@@ -1,11 +1,6 @@
 {
 	"supports": ["samp", "openmp"],
-	"include": "include",
-	"plugins": { 
-		"windows": "audio-cast-*-windows-x86.zip",
-		"linux": "audio-cast-*-linux-x86.zip"
-	},
-	"components": { 
+	"plugins": {
 		"windows": "audio-cast-*-windows-x86.zip",
 		"linux": "audio-cast-*-linux-x86.zip"
 	}
