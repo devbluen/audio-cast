@@ -1,12 +1,12 @@
 {
-	"name": "audio-cast",
-	"version": "1.0.0",
+	"supports": ["samp", "openmp"],
 	"include": "include",
-	"plugins": {
+	"plugins": { 
 		"windows": "audio-cast-*-windows-x86.zip",
 		"linux": "audio-cast-*-linux-x86.zip"
 	},
-	"dependencies": {
-		"pawn-lang/samp-stdlib": "latest"
+	"components": { 
+		"windows": "audio-cast-*-windows-x86.zip",
+		"linux": "audio-cast-*-linux-x86.zip"
 	}
 }
