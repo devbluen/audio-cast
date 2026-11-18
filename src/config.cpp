@@ -4,6 +4,7 @@
  */
 
 #include "config.hpp"
+#include "text.hpp"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -12,7 +13,7 @@
 namespace
 {
 const char* const kKeys[] = {
-	"bind", "port", "public_host", "public_port", "burst_ms", "bitrate", "normalize", "allow_public", "utf8", "log_songs",
+	"bind", "port", "public_host", "public_port", "burst_ms", "bitrate", "normalize", "allow_public", "utf8", "metadata_codepage", "log_songs",
 	"ytdlp", "js_runtime", "cookies", "data_dir", "cache_minutes", "max_duration", "download_timeout", "workers", "max_listeners",
 	nullptr,
 };
@@ -73,6 +74,9 @@ AudioCastConfig LoadAudioCastConfig(const std::function<std::string(const std::s
 	readBool("normalize", config.normalize);
 	readBool("allow_public", config.allowPublic);
 	readBool("utf8", config.utf8);
+	int codepage = config.metadataCodepage;
+	readInt("metadata_codepage", codepage, 0, 65535);
+	if (Text::isSupportedCodepage(codepage)) config.metadataCodepage = codepage;
 	readBool("log_songs", config.logSongs);
 	readString("ytdlp", config.ytdlpPath);
 	readString("js_runtime", config.jsRuntime);

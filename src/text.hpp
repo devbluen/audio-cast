@@ -28,6 +28,12 @@ bool isVideoId(const std::string& value);
 std::string utf8ToLatin1(const std::string& text);
 std::string latin1ToUtf8(const std::string& text);
 
+// A Windows code page from 1250 to 1258, or 0 for plain ASCII, for text that
+// game clients show in their own code page.  Letters missing from it lose
+// their accent.
+std::string utf8ToCodepage(const std::string& text, int codepage);
+bool isSupportedCodepage(int codepage);
+
 std::string trim(const std::string& value);
 std::string randomToken(std::size_t length);
 }

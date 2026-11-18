@@ -29,9 +29,9 @@ std::string lower(std::string value)
 	return value;
 }
 
-std::string headerSafe(const std::string& text)
+std::string headerSafe(const std::string& text, int codepage)
 {
-	std::string safe = Text::utf8ToLatin1(text);
+	std::string safe = Text::utf8ToCodepage(text, codepage);
 	safe.erase(std::remove_if(safe.begin(), safe.end(), [](char c) { return c == '\r' || c == '\n'; }), safe.end());
 	if (safe.size() > 200) safe.resize(200);
 	return safe;
@@ -144,7 +144,7 @@ private:
 
 	std::string metadataBlock(const std::string& title)
 	{
-		std::string text = Text::utf8ToLatin1(title);
+		std::string text = Text::utf8ToCodepage(title, server_.config_.metadataCodepage);
 		if (text == sentTitle_) return std::string(1, '\0');
 		sentTitle_ = text;
 		std::replace(text.begin(), text.end(), '\'', '`');
@@ -448,7 +448,7 @@ void StreamServer::openStream(const std::shared_ptr<StreamSession>& session, int
 		"Pragma: no-cache\r\n"
 		"Connection: close\r\n"
 		"Server: AudioCast/" AUDIOCAST_VERSION "\r\n"
-		"icy-name: " + headerSafe(slot->second.station->name()) + "\r\n"
+		"icy-name: " + headerSafe(slot->second.station->name(), config_.metadataCodepage) + "\r\n"
 		"icy-br: " + std::to_string(config_.bitrateKbps) + "\r\n"
 		"icy-pub: 0\r\n";
 	if (wantsMetadata) headers += "icy-metaint: " + std::to_string(ICY_METADATA_INTERVAL) + "\r\n";
